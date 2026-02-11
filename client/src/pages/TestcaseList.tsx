@@ -78,9 +78,9 @@ const TestCaseManager = () => {
   const [testSuites, setTestSuites] = useState<TestSuite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(
-    null
-  );
+  const [selectedTestCase, setSelectedTestCase] = useState<
+    TestCase | null | any
+  >(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null
   );

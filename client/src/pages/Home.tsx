@@ -90,7 +90,7 @@ export default function MainMenu() {
             className="text-2xl sm:text-3xl font-bold text-white"
             style={{ fontFamily: "Poppins, sans-serif" }}
           >
-            Mobile Ai Test
+            Test Home
           </h1>
           <p className="mt-2 text-slate-400"></p>
         </div>

@@ -67,6 +67,10 @@ const ProjectList = () => {
   const [selectedDevice, setSelectedDevice] = useState("");
   const [selectedManagementTestCase, setSelectedManagementTestCase] =
     useState<TestCases>();
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
+    null
+  );
 
   // 统一下拉菜单状态管理
   const [dropdownStates, setDropdownStates] = useState({
@@ -98,12 +102,12 @@ const ProjectList = () => {
       icon: <Plus className="w-5 h-5" />,
       path: "/projects/create",
     },
-    {
-      id: "Management",
-      title: "Project Management",
-      icon: <Users className="w-5 h-5" />,
-      path: "/projects/Management",
-    },
+    // {
+    //   id: "Management",
+    //   title: "Project Management",
+    //   icon: <Users className="w-5 h-5" />,
+    //   path: "/projects/Management",
+    // },
     {
       id: "settings",
       title: "Settings",
@@ -121,6 +125,7 @@ const ProjectList = () => {
     { id: "1", type: "Android" },
     { id: "2", type: "IOS" },
     { id: "3", type: "HDC" },
+    { id: "4", type: "Web" },
   ];
 
   // Mock project data
@@ -206,6 +211,245 @@ const ProjectList = () => {
     }
   };
 
+  const handleManage = (projectId: string) => {
+    // 设置正在编辑的项目ID
+    setEditingProjectId(projectId);
+    // 切换到管理页面
+    setActiveTab("management");
+  };
+
+  // 删除项目确认对话框
+  const showDeleteConfirmation = (projectId: string) => {
+    setDeletingProjectId(projectId);
+  };
+
+  // 取消删除操作
+  const cancelDelete = () => {
+    setDeletingProjectId(null);
+  };
+
+  // 确认删除项目
+  const confirmDelete = () => {
+    if (deletingProjectId) {
+      setProjects(prevProjects =>
+        prevProjects.filter(project => project.id !== deletingProjectId)
+      );
+      toast.success("Project deleted successfully!");
+      setDeletingProjectId(null);
+    }
+  };
+
+  // 获取正在编辑的项目信息
+  const getEditingProject = () => {
+    if (!editingProjectId) return null;
+    return projects.find(project => project.id === editingProjectId);
+  };
+
+  const renderManagementForm = () => {
+    const project = getEditingProject();
+    if (!project) return null;
+
+    return (
+      <div className="space-y-6">
+        {/* <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveTab("list")}
+            className="flex items-center gap-1"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to List
+          </Button>
+          <h2 className="text-2xl font-bold">Edit Project</h2>
+        </div> */}
+
+        <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-100 mb-2 required-field">
+                Project Name *
+              </label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                placeholder="Input project name..."
+                defaultValue={project.name}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-100 mb-2">
+                Description
+              </label>
+              <textarea
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                placeholder="Input project description..."
+                defaultValue={project.description}
+              ></textarea>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  defaultValue={project.startDate}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  defaultValue={project.endDate}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-100 mb-2">
+                Testcase
+              </label>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all flex items-center justify-between"
+                  onClick={() => toggleDropdown("managementTestcase")}
+                >
+                  <span>
+                    {selectedManagementTestCase?.name || "Select testcase..."}
+                  </span>
+                  {selectedManagementTestCase && (
+                    <button
+                      type="button"
+                      className="ml-2 text-slate-400 hover:text-white"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setSelectedManagementTestCase(undefined);
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                  <ChevronDown
+                    className={`w-4 h-4 ml-2 transition-transform ${dropdownStates.managementTestcase ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {dropdownStates.managementTestcase && (
+                  <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto">
+                    {testCases.map(testCase => (
+                      <div
+                        key={testCase.id}
+                        className="px-3 py-2 hover:bg-slate-700 cursor-pointer"
+                        onClick={() => {
+                          setSelectedManagementTestCase(testCase);
+                          toggleDropdown("managementTestcase");
+                        }}
+                      >
+                        {testCase.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-100 mb-2 required-field">
+                Manager *
+              </label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                placeholder="Input manager's name..."
+                defaultValue={project.manager}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-100 mb-2">
+                Device Type
+              </label>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all flex items-center justify-between"
+                  onClick={() => toggleDropdown("managementDevice")}
+                >
+                  <span>{selectedDevice || "Select device type..."}</span>
+                  {selectedDevice && (
+                    <button
+                      type="button"
+                      className="ml-2 text-slate-400 hover:text-white"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setSelectedDevice("");
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                  <ChevronDown
+                    className={`w-4 h-4 ml-2 transition-transform ${dropdownStates.managementDevice ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {dropdownStates.managementDevice && (
+                  <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto">
+                    {deviceTypes.map(deviceType => (
+                      <div
+                        key={deviceType.id}
+                        className="px-3 py-2 hover:bg-slate-700 cursor-pointer"
+                        onClick={() => {
+                          setSelectedDevice(deviceType.type);
+                          toggleDropdown("managementDevice");
+                        }}
+                      >
+                        {deviceType.type}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-100 mb-2">
+                Budget
+              </label>
+              <input
+                type="number"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                placeholder="Enter budget"
+                defaultValue={project.budget}
+              />
+            </div>
+
+            <Button
+              className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 mt-4"
+              onClick={() => {
+                toast.success("Changes saved successfully!");
+                setActiveTab("list"); // 保存后返回列表
+              }}
+            >
+              Save changes
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
   // 切换特定下拉菜单的状态
   const toggleDropdown = (dropdownKey: keyof typeof dropdownStates) => {
     setDropdownStates(prev => ({
@@ -250,21 +494,6 @@ const ProjectList = () => {
             <Calendar className="w-10 h-10 text-blue-400/30" />
           </div>
         </Card>
-        {/* 
-        <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-100 text-sm mb-1">总预算</p>
-              <p className="text-3xl font-bold">
-                ¥
-                {projects
-                  .reduce((sum, project) => sum + project.budget, 0)
-                  .toLocaleString()}
-              </p>
-            </div>
-            <DollarSign className="w-10 h-10 text-purple-400/30" />
-          </div>
-        </Card> */}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -365,7 +594,7 @@ const ProjectList = () => {
                 <span>{project.manager}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-100">Testcases:</span>
+                <span className="text-slate-100">Budget:</span>
                 <span>¥{project.budget.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
@@ -400,6 +629,9 @@ const ProjectList = () => {
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
+                onClick={() => {
+                  handleManage(project.id);
+                }}
               >
                 <Edit className="w-4 h-4" />
                 Edit
@@ -408,6 +640,7 @@ const ProjectList = () => {
                 variant="destructive"
                 size="sm"
                 className="flex items-center gap-1"
+                onClick={() => showDeleteConfirmation(project.id)}
               >
                 <Trash2 className="w-4 h-4" />
                 Delete
@@ -428,7 +661,18 @@ const ProjectList = () => {
       case "create":
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Create New Project</h2>
+            {/* <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab("list")}
+                className="flex items-center gap-1"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to List
+              </Button>
+              <h2 className="text-2xl font-bold">Create New Project</h2>
+            </div> */}
             <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur p-6">
               <div className="space-y-4">
                 <div>
@@ -453,10 +697,10 @@ const ProjectList = () => {
                   ></textarea>
                 </div>
 
-                {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-100 mb-2">
-                      Begin Date
+                      Start Date
                     </label>
                     <input
                       type="date"
@@ -466,14 +710,14 @@ const ProjectList = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-100 mb-2">
-                      结束日期
+                      End Date
                     </label>
                     <input
                       type="date"
                       className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
                     />
                   </div>
-                </div> */}
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-100 mb-2">
@@ -583,9 +827,23 @@ const ProjectList = () => {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-slate-100 mb-2">
+                    Budget
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                    placeholder="Enter budget"
+                  />
+                </div>
+
                 <Button
                   className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 mt-4"
-                  onClick={() => toast.success("Project created successfully!")}
+                  onClick={() => {
+                    toast.success("Project created successfully!");
+                    setActiveTab("list"); // 创建成功后返回列表
+                  }}
                 >
                   Create project
                 </Button>
@@ -593,175 +851,8 @@ const ProjectList = () => {
             </Card>
           </div>
         );
-      case "Management":
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Project Management</h2>
-            <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2 required-field">
-                    Project Name *
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-                    placeholder="Input project name..."
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
-                    placeholder="Input project description..."
-                  ></textarea>
-                </div>
-
-                {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-100 mb-2">
-                      Begin Date
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-100 mb-2">
-                      结束日期
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-                    />
-                  </div>
-                </div> */}
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2">
-                    Testcase
-                  </label>
-                  <div className="relative" ref={dropdownRef}>
-                    <button
-                      type="button"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all flex items-center justify-between"
-                      onClick={() => toggleDropdown("managementTestcase")}
-                    >
-                      <span>
-                        {selectedManagementTestCase?.name ||
-                          "Select testcase..."}
-                      </span>
-                      {selectedManagementTestCase && (
-                        <button
-                          type="button"
-                          className="ml-2 text-slate-400 hover:text-white"
-                          onClick={e => {
-                            e.stopPropagation();
-                            setSelectedManagementTestCase(undefined);
-                          }}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                      <ChevronDown
-                        className={`w-4 h-4 ml-2 transition-transform ${dropdownStates.managementTestcase ? "rotate-180" : ""}`}
-                      />
-                    </button>
-
-                    {dropdownStates.managementTestcase && (
-                      <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto">
-                        {testCases.map(testCase => (
-                          <div
-                            key={testCase.id}
-                            className="px-3 py-2 hover:bg-slate-700 cursor-pointer"
-                            onClick={() => {
-                              setSelectedManagementTestCase(testCase);
-                              toggleDropdown("managementTestcase");
-                            }}
-                          >
-                            {testCase.name}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2 required-field">
-                    Manager *
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-                    placeholder="Input manager's name..."
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2">
-                    Device Type
-                  </label>
-                  <div className="relative" ref={dropdownRef}>
-                    <button
-                      type="button"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all flex items-center justify-between"
-                      onClick={() => toggleDropdown("managementDevice")}
-                    >
-                      <span>{selectedDevice || "Select device type..."}</span>
-                      {selectedDevice && (
-                        <button
-                          type="button"
-                          className="ml-2 text-slate-400 hover:text-white"
-                          onClick={e => {
-                            e.stopPropagation();
-                            setSelectedDevice("");
-                          }}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                      <ChevronDown
-                        className={`w-4 h-4 ml-2 transition-transform ${dropdownStates.managementDevice ? "rotate-180" : ""}`}
-                      />
-                    </button>
-
-                    {dropdownStates.managementDevice && (
-                      <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto">
-                        {deviceTypes.map(deviceType => (
-                          <div
-                            key={deviceType.id}
-                            className="px-3 py-2 hover:bg-slate-700 cursor-pointer"
-                            onClick={() => {
-                              setSelectedDevice(deviceType.type);
-                              toggleDropdown("managementDevice");
-                            }}
-                          >
-                            {deviceType.type}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <Button
-                  className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 mt-4"
-                  onClick={() => toast.success("Changes saved successfully!")}
-                >
-                  Save changes
-                </Button>
-              </div>
-            </Card>
-          </div>
-        );
+      case "management":
+        return renderManagementForm();
       default:
         return (
           <div className="space-y-6">
@@ -863,6 +954,35 @@ const ProjectList = () => {
           </div>
         </div>
       </main>
+
+      {/* 删除确认对话框 */}
+      {deletingProjectId && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-2">Confirm Deletion</h3>
+            <p className="text-slate-400 mb-6">
+              Are you sure you want to delete this project? This action cannot
+              be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={cancelDelete}
+                className="border-slate-700 text-slate-100 hover:bg-slate-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDelete}
+                className="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
+              >
+                Delete
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
