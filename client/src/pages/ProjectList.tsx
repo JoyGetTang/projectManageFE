@@ -34,9 +34,9 @@ interface Project {
   status: "active" | "completed" | "pending";
   startDate: string;
   endDate: string;
-  budget: number;
   progress: number;
   manager: string;
+  testSuite?: string; // 新增测试套件字段，可选
 }
 
 interface MenuItem {
@@ -138,9 +138,9 @@ const ProjectList = () => {
         status: "active",
         startDate: "2024-01-15",
         endDate: "2024-06-30",
-        budget: 500000,
         progress: 65,
         manager: "Manager Zhang",
+        testSuite: "ERP Integration Tests",
       },
       {
         id: "2",
@@ -149,9 +149,9 @@ const ProjectList = () => {
         status: "active",
         startDate: "2024-02-01",
         endDate: "2024-08-15",
-        budget: 750000,
         progress: 40,
         manager: "Manager Li",
+        testSuite: "CRM Unit Tests",
       },
       {
         id: "3",
@@ -160,9 +160,9 @@ const ProjectList = () => {
         status: "completed",
         startDate: "2023-11-01",
         endDate: "2024-01-31",
-        budget: 300000,
         progress: 100,
         manager: "Manager Wang",
+        testSuite: undefined, // 没有测试套件的情况
       },
       {
         id: "4",
@@ -171,9 +171,9 @@ const ProjectList = () => {
         status: "pending",
         startDate: "2024-03-01",
         endDate: "2024-10-31",
-        budget: 1000000,
         progress: 0,
         manager: "Manager Zhao",
+        testSuite: "Analytics API Tests",
       },
     ];
 
@@ -316,6 +316,18 @@ const ProjectList = () => {
 
             <div>
               <label className="block text-sm font-medium text-slate-100 mb-2">
+                Test Suite
+              </label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                placeholder="Input test suite name..."
+                defaultValue={project.testSuite || ""}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-100 mb-2">
                 Testcase
               </label>
               <div className="relative" ref={dropdownRef}>
@@ -421,18 +433,6 @@ const ProjectList = () => {
                   </div>
                 )}
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-100 mb-2">
-                Budget
-              </label>
-              <input
-                type="number"
-                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-                placeholder="Enter budget"
-                defaultValue={project.budget}
-              />
             </div>
 
             <Button
@@ -594,12 +594,12 @@ const ProjectList = () => {
                 <span>{project.manager}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-100">Budget:</span>
-                <span>¥{project.budget.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm">
                 <span className="text-slate-100">Start time:</span>
                 <span>{project.startDate}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-100">Test Suite:</span>
+                <span>{project.testSuite || "-"}</span>
               </div>
             </div>
 
@@ -721,6 +721,17 @@ const ProjectList = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-100 mb-2">
+                    Test Suite
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                    placeholder="Input test suite name..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-100 mb-2">
                     Testcase
                   </label>
                   <div className="relative" ref={dropdownRef}>
@@ -826,18 +837,6 @@ const ProjectList = () => {
                     )}
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2">
-                    Budget
-                  </label>
-                  <input
-                    type="number"
-                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-                    placeholder="Enter budget"
-                  />
-                </div>
-
                 <Button
                   className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 mt-4"
                   onClick={() => {

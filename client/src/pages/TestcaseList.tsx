@@ -25,6 +25,7 @@ import {
   CheckCircle,
   AlertTriangle,
   FolderPlus,
+  Save,
 } from "lucide-react";
 import { useState, useEffect, JSX, useRef, useCallback } from "react";
 import { useLocation, useRoute } from "wouter";
@@ -97,6 +98,50 @@ const TestCaseManager = () => {
     createCategory: false,
   });
 
+  // 新增测试套件模态框状态
+  const [showCreateSuiteModal, setShowCreateSuiteModal] = useState(false);
+  const [newSuiteName, setNewSuiteName] = useState("");
+  const [newSuiteDescription, setNewSuiteDescription] = useState("");
+
+  // 测试套件详情、编辑、删除相关状态
+  const [currentSuite, setCurrentSuite] = useState<TestSuite | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [suiteForm, setSuiteForm] = useState({ name: "", description: "" });
+
+  // 用于显示测试套件详情页面的状态
+  const [isSuiteDetailPage, setIsSuiteDetailPage] = useState(false);
+
+  // Add test case modal state
+  const [isAddTestCaseModalOpen, setIsAddTestCaseModalOpen] = useState(false);
+  const [newTestCaseForm, setNewTestCaseForm] = useState({
+    name: "",
+    description: "",
+    priority: "",
+    steps: "",
+    expectedResult: "",
+  });
+
+  // Edit test case modal state
+  const [isEditTestCaseModalOpen, setIsEditTestCaseModalOpen] = useState(false);
+  const [editTestCaseForm, setEditTestCaseForm] = useState<TestCase>({
+    id: "",
+    name: "",
+    description: "",
+    category: "",
+    priority: "medium",
+    status: "active",
+    steps: [],
+    expectedResult: "",
+    createdDate: "",
+    updatedDate: "",
+  });
+
+  // View test case details state
+  const [isViewTestCaseModalOpen, setIsViewTestCaseModalOpen] = useState(false);
+  const [viewTestCase, setViewTestCase] = useState<TestCase | null>(null);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Mock menu items
@@ -108,29 +153,30 @@ const TestCaseManager = () => {
       path: "/testcases/dashboard",
     },
     {
-      id: "list",
-      title: "Test Case List",
-      icon: <FileText className="w-5 h-5" />,
-      path: "/testcases/list",
-    },
-    {
       id: "suite",
       title: "Test Suite List",
       icon: <FolderPlus className="w-5 h-5" />,
       path: "/testcases/suite",
     },
     {
+      id: "list",
+      title: "Test Case List",
+      icon: <FileText className="w-5 h-5" />,
+      path: "/testcases/list",
+    },
+
+    {
       id: "create",
       title: "Create Test Case",
       icon: <Plus className="w-5 h-5" />,
       path: "/testcases/create",
     },
-    {
-      id: "execution",
-      title: "Execution History",
-      icon: <Play className="w-5 h-5" />,
-      path: "/testcases/execution",
-    },
+    // {
+    //   id: "execution",
+    //   title: "Execution History",
+    //   icon: <Play className="w-5 h-5" />,
+    //   path: "/testcases/execution",
+    // },
     {
       id: "settings",
       title: "Settings",
@@ -278,6 +324,130 @@ const TestCaseManager = () => {
     setIsLoading(false);
   }, []);
 
+  // 获取当前套件的测试用例
+  const getTestCasesForSuite = () => {
+    if (!currentSuite) return [];
+    return testCases.filter(tc => currentSuite.testCaseIds.includes(tc.id));
+  };
+
+  // 处理查看按钮点击
+  const handleViewClick = (suite: TestSuite) => {
+    setCurrentSuite(suite);
+    setIsSuiteDetailPage(true);
+    setActiveTab("suite-detail"); // 新增标签页类型
+  };
+
+  // 返回测试套件列表
+  const handleBackToSuiteList = () => {
+    setIsSuiteDetailPage(false);
+    setActiveTab("suite");
+    setCurrentSuite(null);
+  };
+
+  // 处理编辑按钮点击
+  const handleEditClick = (suite: TestSuite) => {
+    setCurrentSuite(suite);
+    setSuiteForm({ name: suite.name, description: suite.description });
+    setIsEditModalOpen(true);
+  };
+
+  // 处理删除按钮点击
+  const handleDeleteClick = (suite: TestSuite) => {
+    setCurrentSuite(suite);
+    setIsDeleteModalOpen(true);
+  };
+
+  // 确认编辑
+  const confirmEdit = () => {
+    if (!suiteForm.name.trim()) {
+      toast.error("Test suite name is required");
+      return;
+    }
+
+    setTestSuites(prev =>
+      prev.map(suite =>
+        suite.id === currentSuite!.id
+          ? {
+              ...suite,
+              name: suiteForm.name,
+              description: suiteForm.description,
+              updatedDate: new Date().toISOString().split("T")[0],
+            }
+          : suite
+      )
+    );
+
+    setIsEditModalOpen(false);
+    setCurrentSuite(null);
+    setSuiteForm({ name: "", description: "" });
+    toast.success(`Test suite "${suiteForm.name}" updated successfully!`);
+  };
+
+  // 确认删除
+  const confirmDelete = () => {
+    setTestSuites(prev => prev.filter(suite => suite.id !== currentSuite!.id));
+    setIsDeleteModalOpen(false);
+    setCurrentSuite(null);
+    toast.success(`Test suite "${currentSuite?.name}" deleted successfully!`);
+  };
+
+  // 关闭所有模态框
+  const closeModal = () => {
+    setIsViewModalOpen(false);
+    setIsEditModalOpen(false);
+    setIsDeleteModalOpen(false);
+    setCurrentSuite(null);
+    setSuiteForm({ name: "", description: "" });
+  };
+
+  const closeAddTestCaseModal = () => {
+    setIsAddTestCaseModalOpen(false);
+    setNewTestCaseForm({
+      name: "",
+      description: "",
+      priority: "",
+      steps: "",
+      expectedResult: "",
+    });
+  };
+
+  const handleAddTestCaseSubmit = () => {
+    if (!newTestCaseForm.name.trim()) {
+      toast.error("Test case name is required");
+      return;
+    }
+
+    const newTestCase: TestCase = {
+      id: `tc_${Date.now()}`,
+      name: newTestCaseForm.name,
+      description: newTestCaseForm.description,
+      category: currentSuite ? currentSuite.name : "General",
+      priority:
+        (newTestCaseForm.priority as "high" | "medium" | "low") || "medium",
+      status: "active",
+      steps: newTestCaseForm.steps.split("\n").filter(step => step.trim()),
+      expectedResult: newTestCaseForm.expectedResult,
+      createdDate: new Date().toISOString().split("T")[0],
+      updatedDate: new Date().toISOString().split("T")[0],
+    };
+
+    setTestCases(prev => [...prev, newTestCase]);
+
+    // If we're in a suite detail page, add to the current suite too
+    if (currentSuite) {
+      setTestSuites(prev =>
+        prev.map(suite =>
+          suite.id === currentSuite.id
+            ? { ...suite, testCaseIds: [...suite.testCaseIds, newTestCase.id] }
+            : suite
+        )
+      );
+    }
+
+    closeAddTestCaseModal();
+    toast.success(`Test case "${newTestCaseForm.name}" added successfully!`);
+  };
+
   const handleLogout = () => {
     dispatch(clearStates());
     toast.success("Successfully logged out");
@@ -291,7 +461,39 @@ const TestCaseManager = () => {
   };
 
   const HandleCreateTestSuite = () => {
-    setActiveTab("suite");
+    // 重置表单字段
+    setNewSuiteName("");
+    setNewSuiteDescription("");
+    setShowCreateSuiteModal(true);
+  };
+
+  const handleCreateSuiteSubmit = () => {
+    if (!newSuiteName.trim()) {
+      toast.error("Test suite name is required");
+      return;
+    }
+
+    // 创建新的测试套件
+    const newSuite: TestSuite = {
+      id: `suite_${Date.now()}`,
+      name: newSuiteName.trim(),
+      description: newSuiteDescription.trim(),
+      testCaseIds: [],
+      createdDate: new Date().toISOString().split("T")[0],
+      updatedDate: new Date().toISOString().split("T")[0],
+    };
+
+    // 添加到测试套件列表
+    setTestSuites(prev => [...prev, newSuite]);
+
+    // 关闭模态框
+    setShowCreateSuiteModal(false);
+
+    // 重置表单
+    setNewSuiteName("");
+    setNewSuiteDescription("");
+
+    toast.success(`Test suite "${newSuiteName}" created successfully!`);
   };
 
   const handleBack = useCallback(() => {
@@ -346,31 +548,39 @@ const TestCaseManager = () => {
     }));
   };
 
-  const runTestCase = (id: string) => {
-    toast.info(`Running test case ${id}...`);
-    // 模拟执行过程
-    setTimeout(() => {
-      const randomResult = Math.random() > 0.5 ? "passed" : "failed";
-      setTestCases(prev =>
-        prev.map(tc =>
-          tc.id === id
-            ? {
-                ...tc,
-                lastRunDate: new Date().toISOString().split("T")[0],
-                lastRunStatus: randomResult as any,
-              }
-            : tc
-        )
-      );
-      toast.success(
-        `Test case ${id} execution completed with status: ${randomResult}`
-      );
-    }, 2000);
+  const editTestCase = (id: string) => {
+    const testCase = testCases.find(tc => tc.id === id);
+    if (testCase) {
+      setEditTestCaseForm({ ...testCase });
+      setIsEditTestCaseModalOpen(true);
+    }
   };
 
-  const editTestCase = (id: string) => {
-    toast.info(`Editing test case ${id}`);
-    // 在实际应用中，这里会跳转到编辑页面
+  const viewTestCaseDetails = (testCase: TestCase) => {
+    setViewTestCase(testCase);
+    setIsViewTestCaseModalOpen(true);
+  };
+
+  const handleEditTestCaseSubmit = () => {
+    if (!editTestCaseForm.name.trim()) {
+      toast.error("Test case name is required");
+      return;
+    }
+
+    setTestCases(prev =>
+      prev.map(tc =>
+        tc.id === editTestCaseForm.id
+          ? {
+              ...tc,
+              ...editTestCaseForm,
+              updatedDate: new Date().toISOString().split("T")[0],
+            }
+          : tc
+      )
+    );
+
+    setIsEditTestCaseModalOpen(false);
+    toast.success(`Test case "${editTestCaseForm.name}" updated successfully!`);
   };
 
   const deleteTestCase = (id: string) => {
@@ -524,8 +734,8 @@ const TestCaseManager = () => {
               <tr className="border-b border-slate-700">
                 <th className="pb-3 text-left">Name</th>
                 <th className="pb-3 text-left">Priority</th>
-                <th className="pb-3 text-left">Last Run</th>
-                <th className="pb-3 text-left">Actions</th>
+                {/* <th className="pb-3 text-left">Last Run</th> */}
+                {/* <th className="pb-3 text-left">Actions</th> */}
               </tr>
             </thead>
             <tbody>
@@ -558,7 +768,7 @@ const TestCaseManager = () => {
                           {testCase.priority}
                         </span>
                       </td>
-                      <td className="py-3">
+                      {/* <td className="py-3">
                         {testCase.lastRunDate ? (
                           <div>
                             <div>{testCase.lastRunDate}</div>
@@ -573,16 +783,16 @@ const TestCaseManager = () => {
                         ) : (
                           <span className="text-slate-500">Never</span>
                         )}
-                      </td>
+                      </td> */}
                       <td className="py-3 flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           className="flex items-center gap-1"
-                          onClick={() => runTestCase(testCase.id)}
+                          onClick={() => viewTestCaseDetails(testCase)}
                         >
-                          <Play className="w-4 h-4" />
-                          Run
+                          <Eye className="w-4 h-4" />
+                          View
                         </Button>
                         <Button
                           variant="outline"
@@ -680,6 +890,7 @@ const TestCaseManager = () => {
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
+                onClick={() => handleViewClick(suite)}
               >
                 <Eye className="w-4 h-4" />
                 View
@@ -688,6 +899,7 @@ const TestCaseManager = () => {
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
+                onClick={() => handleEditClick(suite)}
               >
                 <Edit className="w-4 h-4" />
                 Edit
@@ -696,6 +908,7 @@ const TestCaseManager = () => {
                 variant="destructive"
                 size="sm"
                 className="flex items-center gap-1"
+                onClick={() => handleDeleteClick(suite)}
               >
                 <Trash2 className="w-4 h-4" />
                 Delete
@@ -707,7 +920,204 @@ const TestCaseManager = () => {
     </div>
   );
 
+  // 新增：测试套件详情页面，展示测试用例列表
+  const renderSuiteDetailPage = () => {
+    if (!currentSuite) return null;
+
+    const suiteTestCases = getTestCasesForSuite();
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <Button
+              variant="outline"
+              onClick={handleBackToSuiteList}
+              className="flex items-center gap-2 mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to Suite List
+            </Button>
+            <h2 className="text-2xl font-bold">{currentSuite.name}</h2>
+            <p className="text-slate-400 mt-1">{currentSuite.description}</p>
+          </div>
+        </div>
+
+        <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">
+              Test Cases in {currentSuite.name} ({suiteTestCases.length})
+            </h3>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                placeholder="Search test cases..."
+                className="px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all w-64"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              <Button
+                className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30"
+                onClick={() => setIsAddTestCaseModalOpen(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Test Case
+              </Button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-700">
+                  <th className="pb-3 text-left">Name</th>
+                  <th className="pb-3 text-left">Category</th>
+                  <th className="pb-3 text-left">Priority</th>
+                  <th className="pb-3 text-left">Status</th>
+                  {/* <th className="pb-3 text-left">Last Run</th> */}
+                  {/* <th className="pb-3 text-left">Actions</th> */}
+                </tr>
+              </thead>
+              <tbody>
+                {suiteTestCases
+                  .filter(
+                    tc =>
+                      tc.name
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase()) ||
+                      tc.description
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase())
+                  )
+                  .map(testCase => (
+                    <React.Fragment key={testCase.id}>
+                      <tr className="border-b border-slate-700/50 hover:bg-slate-700/20">
+                        <td
+                          className="py-3 font-medium cursor-pointer"
+                          onClick={() => toggleRowExpansion(testCase.id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <ChevronDown
+                              className={`w-4 h-4 transition-transform ${expandedRows[testCase.id] ? "rotate-180" : ""}`}
+                            />
+                            {testCase.name}
+                          </div>
+                        </td>
+                        <td className="py-3">
+                          <span className="px-2 py-1 rounded text-xs border bg-slate-700/30 text-slate-300 border-slate-600">
+                            {testCase.category}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span
+                            className={`px-2 py-1 rounded text-xs border ${getPriorityColor(testCase.priority)}`}
+                          >
+                            {testCase.priority}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span
+                            className={`px-2 py-1 rounded text-xs border ${getStatusColor(testCase.status)}`}
+                          >
+                            {testCase.status}
+                          </span>
+                        </td>
+                        {/* <td className="py-3">
+                          {testCase.lastRunDate ? (
+                            <div>
+                              <div>{testCase.lastRunDate}</div>
+                              {testCase.lastRunStatus && (
+                                <div
+                                  className={`mt-1 px-2 py-1 rounded text-xs border ${getRunStatusColor(testCase.lastRunStatus)}`}
+                                >
+                                  {testCase.lastRunStatus}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-500">Never</span>
+                          )}
+                        </td> */}
+                        <td className="py-3 flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => viewTestCaseDetails(testCase)}
+                          >
+                            <Eye className="w-4 h-4" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => editTestCase(testCase.id)}
+                          >
+                            <Edit className="w-4 h-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => deleteTestCase(testCase.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Remove
+                          </Button>
+                        </td>
+                      </tr>
+
+                      {/* 展开的描述区域 */}
+                      {expandedRows[testCase.id] && (
+                        <tr>
+                          <td
+                            colSpan={6}
+                            className="pt-2 pb-4 px-4 bg-slate-800/30 border-t border-slate-700"
+                          >
+                            <div className="font-medium mb-1">Description:</div>
+                            <div className="text-slate-300 text-sm">
+                              {testCase.description}
+                            </div>
+
+                            <div className="mt-3">
+                              <div className="font-medium mb-1">
+                                Test Steps:
+                              </div>
+                              <ol className="list-decimal list-inside text-slate-300 text-sm space-y-1">
+                                {testCase.steps.map((step, idx) => (
+                                  <li key={idx}>{step}</li>
+                                ))}
+                              </ol>
+                            </div>
+
+                            <div className="mt-3">
+                              <div className="font-medium mb-1">
+                                Expected Result:
+                              </div>
+                              <div className="text-slate-300 text-sm">
+                                {testCase.expectedResult}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
   const renderContent = () => {
+    // 特殊处理测试套件详情页面
+    if (isSuiteDetailPage && activeTab === "suite-detail") {
+      return renderSuiteDetailPage();
+    }
+
     switch (activeTab) {
       case "dashboard":
         return renderDashboard();
@@ -827,49 +1237,6 @@ const TestCaseManager = () => {
                 >
                   Create Test Case
                 </Button>
-              </div>
-            </Card>
-          </div>
-        );
-      case "execution":
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Execution History</h2>
-            <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur p-6">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-700">
-                      <th className="pb-2 text-left">Test Case</th>
-                      <th className="pb-2 text-left">Date</th>
-                      <th className="pb-2 text-left">Status</th>
-                      <th className="pb-2 text-left">Duration</th>
-                      <th className="pb-2 text-left">Executor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {testCases
-                      .filter(tc => tc.lastRunDate)
-                      .map((testCase, index) => (
-                        <tr
-                          key={index}
-                          className="border-b border-slate-700/50"
-                        >
-                          <td className="py-3">{testCase.name}</td>
-                          <td className="py-3">{testCase.lastRunDate}</td>
-                          <td className="py-3">
-                            <span
-                              className={`px-2 py-1 rounded text-xs border ${getRunStatusColor(testCase.lastRunStatus)}`}
-                            >
-                              {testCase.lastRunStatus}
-                            </span>
-                          </td>
-                          <td className="py-3">2m 34s</td>
-                          <td className="py-3">QA Team</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
               </div>
             </Card>
           </div>
@@ -1023,6 +1390,694 @@ const TestCaseManager = () => {
           </div>
         </div>
       </header>
+
+      {/* Create Test Suite Modal */}
+      {showCreateSuiteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-md bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 relative">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Create Test Suite</h3>
+              <Button
+                onClick={() => setShowCreateSuiteModal(false)}
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Test Suite Name *
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  placeholder="Enter test suite name..."
+                  value={newSuiteName}
+                  onChange={e => setNewSuiteName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Description
+                </label>
+                <textarea
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                  placeholder="Enter test suite description..."
+                  value={newSuiteDescription}
+                  onChange={e => setNewSuiteDescription(e.target.value)}
+                ></textarea>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateSuiteModal(false)}
+                className="border-slate-700 text-slate-100 hover:bg-slate-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30"
+                onClick={handleCreateSuiteSubmit}
+              >
+                Create Suite
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Test Case Modal */}
+      {isAddTestCaseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-2xl bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 relative max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">Add New Test Case</h3>
+              <Button
+                onClick={closeAddTestCaseModal}
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2 required-field">
+                  Test Case Name *
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  placeholder="Input test case name..."
+                  value={newTestCaseForm.name}
+                  onChange={e =>
+                    setNewTestCaseForm({
+                      ...newTestCaseForm,
+                      name: e.target.value,
+                    })
+                  }
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Description
+                </label>
+                <textarea
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                  placeholder="Input test case description..."
+                  value={newTestCaseForm.description}
+                  onChange={e =>
+                    setNewTestCaseForm({
+                      ...newTestCaseForm,
+                      description: e.target.value,
+                    })
+                  }
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Priority
+                </label>
+                <select
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  value={newTestCaseForm.priority}
+                  onChange={e =>
+                    setNewTestCaseForm({
+                      ...newTestCaseForm,
+                      priority: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select priority...</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Steps
+                </label>
+                <textarea
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                  placeholder="Enter test steps (one per line)"
+                  value={newTestCaseForm.steps}
+                  onChange={e =>
+                    setNewTestCaseForm({
+                      ...newTestCaseForm,
+                      steps: e.target.value,
+                    })
+                  }
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Expected Result
+                </label>
+                <textarea
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                  placeholder="Enter expected result"
+                  value={newTestCaseForm.expectedResult}
+                  onChange={e =>
+                    setNewTestCaseForm({
+                      ...newTestCaseForm,
+                      expectedResult: e.target.value,
+                    })
+                  }
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={closeAddTestCaseModal}
+                  className="border-slate-700 text-slate-100 hover:bg-slate-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30"
+                  onClick={handleAddTestCaseSubmit}
+                >
+                  Add Test Case
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Test Case Modal */}
+      {isEditTestCaseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-2xl bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 relative max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">Edit Test Case</h3>
+              <Button
+                onClick={() => setIsEditTestCaseModalOpen(false)}
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2 required-field">
+                  Test Case Name *
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  placeholder="Input test case name..."
+                  value={editTestCaseForm.name}
+                  onChange={e =>
+                    setEditTestCaseForm({
+                      ...editTestCaseForm,
+                      name: e.target.value,
+                    })
+                  }
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Description
+                </label>
+                <textarea
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                  placeholder="Input test case description..."
+                  value={editTestCaseForm.description}
+                  onChange={e =>
+                    setEditTestCaseForm({
+                      ...editTestCaseForm,
+                      description: e.target.value,
+                    })
+                  }
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Category
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  placeholder="Input category..."
+                  value={editTestCaseForm.category}
+                  onChange={e =>
+                    setEditTestCaseForm({
+                      ...editTestCaseForm,
+                      category: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Priority
+                </label>
+                <select
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  value={editTestCaseForm.priority}
+                  onChange={e =>
+                    setEditTestCaseForm({
+                      ...editTestCaseForm,
+                      priority: e.target.value as "high" | "medium" | "low",
+                    })
+                  }
+                >
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Status
+                </label>
+                <select
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  value={editTestCaseForm.status}
+                  onChange={e =>
+                    setEditTestCaseForm({
+                      ...editTestCaseForm,
+                      status: e.target.value as
+                        | "active"
+                        | "inactive"
+                        | "archived",
+                    })
+                  }
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Steps
+                </label>
+                <textarea
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                  placeholder="Enter test steps (one per line)"
+                  value={editTestCaseForm.steps.join("\n")}
+                  onChange={e =>
+                    setEditTestCaseForm({
+                      ...editTestCaseForm,
+                      steps: e.target.value
+                        .split("\n")
+                        .filter(step => step.trim()),
+                    })
+                  }
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Expected Result
+                </label>
+                <textarea
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                  placeholder="Enter expected result"
+                  value={editTestCaseForm.expectedResult}
+                  onChange={e =>
+                    setEditTestCaseForm({
+                      ...editTestCaseForm,
+                      expectedResult: e.target.value,
+                    })
+                  }
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditTestCaseModalOpen(false)}
+                  className="border-slate-700 text-slate-100 hover:bg-slate-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30"
+                  onClick={handleEditTestCaseSubmit}
+                >
+                  Update Test Case
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* View Test Case Details Modal */}
+      {isViewTestCaseModalOpen && viewTestCase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-3xl bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 relative max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">Test Case Details</h3>
+              <Button
+                onClick={() => setIsViewTestCaseModalOpen(false)}
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-lg font-semibold text-cyan-400 mb-2">
+                  Basic Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Name
+                    </label>
+                    <p className="text-slate-100">{viewTestCase.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Category
+                    </label>
+                    <span className="px-2 py-1 rounded text-xs border bg-slate-700/30 text-slate-300 border-slate-600">
+                      {viewTestCase.category}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Priority
+                    </label>
+                    <span
+                      className={`px-2 py-1 rounded text-xs border ${getPriorityColor(viewTestCase.priority)}`}
+                    >
+                      {viewTestCase.priority}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Status
+                    </label>
+                    <span
+                      className={`px-2 py-1 rounded text-xs border ${getStatusColor(viewTestCase.status)}`}
+                    >
+                      {viewTestCase.status}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Created Date
+                    </label>
+                    <p className="text-slate-100">{viewTestCase.createdDate}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Last Updated
+                    </label>
+                    <p className="text-slate-100">{viewTestCase.updatedDate}</p>
+                  </div>
+                  {/* {viewTestCase.lastRunDate && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">
+                          Last Run Date
+                        </label>
+                        <p className="text-slate-100">
+                          {viewTestCase.lastRunDate}
+                        </p>
+                      </div>
+                      {viewTestCase.lastRunStatus && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-1">
+                            Last Run Status
+                          </label>
+                          <span
+                            className={`px-2 py-1 rounded text-xs border ${getRunStatusColor(viewTestCase.lastRunStatus)}`}
+                          >
+                            {viewTestCase.lastRunStatus}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )} */}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-lg font-semibold text-cyan-400 mb-2">
+                  Description
+                </h4>
+                <p className="text-slate-300">{viewTestCase.description}</p>
+              </div>
+
+              <div>
+                <h4 className="text-lg font-semibold text-cyan-400 mb-2">
+                  Test Steps
+                </h4>
+                <ol className="list-decimal list-inside space-y-2">
+                  {viewTestCase.steps.map((step, index) => (
+                    <li key={index} className="text-slate-300 pl-2">
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div>
+                <h4 className="text-lg font-semibold text-cyan-400 mb-2">
+                  Expected Result
+                </h4>
+                <p className="text-slate-300">{viewTestCase.expectedResult}</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* View Test Suite Modal */}
+      {isViewModalOpen && currentSuite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-2xl bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 relative max-h-[80vh] overflow-hidden">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">
+                Test Cases in {currentSuite.name}
+              </h3>
+              <Button
+                onClick={closeModal}
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="overflow-y-auto max-h-[60vh]">
+              <table className="w-full">
+                <thead className="sticky top-0 bg-slate-700">
+                  <tr>
+                    <th className="text-left p-3 text-slate-300">ID</th>
+                    <th className="text-left p-3 text-slate-300">Name</th>
+                    <th className="text-left p-3 text-slate-300">Priority</th>
+                    <th className="text-left p-3 text-slate-300">Status</th>
+                    {/* <th className="text-left p-3 text-slate-300">Last Run</th> */}
+                  </tr>
+                </thead>
+                <tbody>
+                  {getTestCasesForSuite().map((testCase, index) => (
+                    <tr
+                      key={testCase.id}
+                      className={
+                        index % 2 === 0 ? "bg-slate-800/50" : "bg-slate-900/50"
+                      }
+                    >
+                      <td className="p-3 text-slate-300">{testCase.id}</td>
+                      <td className="p-3 text-slate-300">{testCase.name}</td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-1 rounded text-xs border ${getPriorityColor(testCase.priority)}`}
+                        >
+                          {testCase.priority}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-1 rounded text-xs border ${getStatusColor(testCase.status)}`}
+                        >
+                          {testCase.status}
+                        </span>
+                      </td>
+                      {/* <td className="p-3">
+                        {testCase.lastRunDate ? (
+                          <div>
+                            <div>{testCase.lastRunDate}</div>
+                            {testCase.lastRunStatus && (
+                              <div
+                                className={`mt-1 px-2 py-1 rounded text-xs border ${getRunStatusColor(testCase.lastRunStatus)}`}
+                              >
+                                {testCase.lastRunStatus}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-500">Never</span>
+                        )}
+                      </td> */}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {getTestCasesForSuite().length === 0 && (
+                <div className="p-8 text-center text-slate-500">
+                  No test cases found for this suite.
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Test Suite Modal */}
+      {isEditModalOpen && currentSuite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-md bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 relative">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Edit Test Suite</h3>
+              <Button
+                onClick={closeModal}
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Test Suite Name *
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  placeholder="Enter test suite name..."
+                  value={suiteForm.name}
+                  onChange={e =>
+                    setSuiteForm({ ...suiteForm, name: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Description
+                </label>
+                <textarea
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                  placeholder="Enter test suite description..."
+                  value={suiteForm.description}
+                  onChange={e =>
+                    setSuiteForm({ ...suiteForm, description: e.target.value })
+                  }
+                ></textarea>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={closeModal}
+                className="border-slate-700 text-slate-100 hover:bg-slate-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 flex items-center gap-1"
+                onClick={confirmEdit}
+                disabled={!suiteForm.name.trim()}
+              >
+                <Save className="w-4 h-4" />
+                Save Changes
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && currentSuite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-md bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 relative">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-red-400">
+                Confirm Deletion
+              </h3>
+              <Button
+                onClick={closeModal}
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-slate-300">
+                Are you sure you want to delete the test suite "
+                <strong>{currentSuite.name}</strong>"?
+              </p>
+              <p className="text-slate-400 text-sm">
+                This action cannot be undone and will permanently remove this
+                test suite along with its associations.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={closeModal}
+                className="border-slate-700 text-slate-100 hover:bg-slate-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex items-center gap-1"
+                onClick={confirmDelete}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Permanently
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       <main className="flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
