@@ -34,6 +34,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearStates } from "@/store/slices/invoiceSlice";
 import { navigate } from "wouter/use-browser-location";
 import React from "react";
+import { apiService } from "@/utils/service";
 
 interface TestCase {
   id: string;
@@ -195,6 +196,30 @@ const TestCaseManager = () => {
 
   // Mock test case data
   useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const response = await apiService.getTestcases();
+        setTestCases(response);
+      } catch (error) {
+        console.error("Error loading test cases:", error);
+        toast.error("Failed to load test case data");
+      } finally {
+        setIsLoading(false);
+      }
+
+      try {
+        const response = await apiService.getTestSuites();
+        setTestSuites(response);
+      } catch (error) {
+        console.error("Error loading test cases:", error);
+        toast.error("Failed to load test case data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
     const mockTestCases: TestCase[] = [
       {
         id: "1",
@@ -318,10 +343,6 @@ const TestCaseManager = () => {
         updatedDate: "2024-01-09",
       },
     ];
-
-    setTestCases(mockTestCases);
-    setTestSuites(mockTestSuites);
-    setIsLoading(false);
   }, []);
 
   // 获取当前套件的测试用例
@@ -347,7 +368,6 @@ const TestCaseManager = () => {
   // 处理编辑按钮点击
   const handleEditClick = (suite: TestSuite) => {
     setCurrentSuite(suite);
-    setSuiteForm({ name: suite.name, description: suite.description });
     setIsEditModalOpen(true);
   };
 
@@ -358,36 +378,58 @@ const TestCaseManager = () => {
   };
 
   // 确认编辑
-  const confirmEdit = () => {
-    if (!suiteForm.name.trim()) {
-      toast.error("Test suite name is required");
-      return;
+  const handleUpdateTestsuite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentSuite) return;
+
+    const formData = new FormData(e.target as HTMLFormElement);
+    console.log(formData);
+
+    const updatedSuite = {
+      ...currentSuite,
+      name: formData.get("name") as string,
+      description: formData.get("description") as string,
+      updatedDate: new Date().toISOString().split("T")[0],
+    };
+
+    try {
+      // 调用API更新项目
+      await apiService.updateTestsuite(updatedSuite);
+
+      // 更新本地状态
+      setTestSuites(prevSuites =>
+        prevSuites.map(suite =>
+          suite.id === currentSuite.id ? updatedSuite : suite
+        )
+      );
+
+      toast.success("Test suite updated successfully!");
+      setIsEditModalOpen(false);
+    } catch (error) {
+      console.error("Error updating test suite:", error);
+      toast.error("Failed to update test suite - please try again ");
     }
-
-    setTestSuites(prev =>
-      prev.map(suite =>
-        suite.id === currentSuite!.id
-          ? {
-              ...suite,
-              name: suiteForm.name,
-              description: suiteForm.description,
-              updatedDate: new Date().toISOString().split("T")[0],
-            }
-          : suite
-      )
-    );
-
-    setIsEditModalOpen(false);
-    setCurrentSuite(null);
-    setSuiteForm({ name: "", description: "" });
-    toast.success(`Test suite "${suiteForm.name}" updated successfully!`);
   };
 
   // 确认删除
-  const confirmDelete = () => {
-    setTestSuites(prev => prev.filter(suite => suite.id !== currentSuite!.id));
+  const confirmDelete = async () => {
+    try {
+      // 调用API删除项目
+      await apiService.deleteTestsuite(currentSuite!.id);
+
+      // 从本地状态移除项目
+      setTestSuites(prevSuites =>
+        prevSuites.filter(suite => suite.id !== currentSuite!.id)
+      );
+
+      toast.success("Test suite deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting test suite:", error);
+      toast.error("Failed to delete test suite");
+    } finally {
+      setCurrentSuite(null);
+    }
     setIsDeleteModalOpen(false);
-    setCurrentSuite(null);
     toast.success(`Test suite "${currentSuite?.name}" deleted successfully!`);
   };
 
@@ -467,7 +509,7 @@ const TestCaseManager = () => {
     setShowCreateSuiteModal(true);
   };
 
-  const handleCreateSuiteSubmit = () => {
+  const handleCreateSuiteSubmit = async () => {
     if (!newSuiteName.trim()) {
       toast.error("Test suite name is required");
       return;
@@ -484,8 +526,21 @@ const TestCaseManager = () => {
     };
 
     // 添加到测试套件列表
-    setTestSuites(prev => [...prev, newSuite]);
+    try {
+      const response = await apiService.createTestsuite(newSuite);
+      if (response.code === 200) {
+        // 重新加载项目列表
+        const updatedTestSuites = await apiService.getTestSuites();
+        setTestSuites(updatedTestSuites);
 
+        toast.success("Test suite created successfully!");
+      } else {
+        toast.error("Failed to create test suite");
+      }
+    } catch (error) {
+      console.error("Error creating test suite:", error);
+      toast.error("Failed to create test suite  - please try again");
+    }
     // 关闭模态框
     setShowCreateSuiteModal(false);
 
@@ -1965,66 +2020,63 @@ const TestCaseManager = () => {
       {isEditModalOpen && currentSuite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <Card className="w-full max-w-md bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 relative">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Edit Test Suite</h3>
-              <Button
-                onClick={closeModal}
-                variant="ghost"
-                size="sm"
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
+            <h3 className="text-lg font-semibold">Edit Test Suite</h3>
+            <form onSubmit={handleUpdateTestsuite} className="space-y-4">
+              <div className="flex justify-between items-center mb-4"></div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-100 mb-2">
+                    Test Suite Name *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                    placeholder="Enter test suite name..."
+                    name="name"
+                    value={suiteForm.name}
+                    onChange={e =>
+                      setSuiteForm({ ...suiteForm, name: e.target.value })
+                    }
+                  />
+                </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-100 mb-2">
-                  Test Suite Name *
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-                  placeholder="Enter test suite name..."
-                  value={suiteForm.name}
-                  onChange={e =>
-                    setSuiteForm({ ...suiteForm, name: e.target.value })
-                  }
-                />
+                <div>
+                  <label className="block text-sm font-medium text-slate-100 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                    placeholder="Enter test suite description..."
+                    name="description"
+                    value={suiteForm.description}
+                    onChange={e =>
+                      setSuiteForm({
+                        ...suiteForm,
+                        description: e.target.value,
+                      })
+                    }
+                  ></textarea>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-100 mb-2">
-                  Description
-                </label>
-                <textarea
-                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
-                  placeholder="Enter test suite description..."
-                  value={suiteForm.description}
-                  onChange={e =>
-                    setSuiteForm({ ...suiteForm, description: e.target.value })
-                  }
-                ></textarea>
+              <div className="flex justify-end gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  onClick={closeModal}
+                  className="border-slate-700 text-slate-100 hover:bg-slate-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 flex items-center gap-1"
+                  disabled={!suiteForm.name.trim()}
+                  type="submit"
+                >
+                  <Save className="w-4 h-4" />
+                  Save Changes
+                </Button>
               </div>
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6">
-              <Button
-                variant="outline"
-                onClick={closeModal}
-                className="border-slate-700 text-slate-100 hover:bg-slate-700"
-              >
-                Cancel
-              </Button>
-              <Button
-                className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 flex items-center gap-1"
-                onClick={confirmEdit}
-                disabled={!suiteForm.name.trim()}
-              >
-                <Save className="w-4 h-4" />
-                Save Changes
-              </Button>
-            </div>
+            </form>
           </Card>
         </div>
       )}

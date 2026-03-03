@@ -51,6 +51,11 @@ interface InvoiceApiService {
   createProjects: (data: any) => Promise<any>;
   updateProject: (data: any) => Promise<any>;
   deleteProject: (projectId: string) => Promise<any>;
+  getTestcases: () => Promise<any>;
+  getTestSuites: () => Promise<any>;
+  createTestsuite: (data: any) => Promise<any>;
+  updateTestsuite: (data: any) => Promise<any>;
+  deleteTestsuite: (testsuiteId: string) => Promise<any>;
 }
 
 // 登录API
@@ -95,6 +100,37 @@ export const apiService: InvoiceApiService = {
   },
   deleteProject: async (projectId: string) => {
     const response = await apiClient.delete(`/delete_project/${projectId}`);
+    return response.data;
+  },
+
+  getTestcases: async () => {
+    const response = await apiClient.get("/testcases");
+    return response.data;
+  },
+
+  getTestSuites: async () => {
+    const response = await apiClient.get("/testsuites");
+    return response.data;
+  },
+
+  createTestsuite: async (formData: FormData) => {
+    const response = await apiClient.post("/create_testsuite", formData, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.data;
+  },
+  updateTestsuite: async (formData: FormData) => {
+    const response = await apiClient.put("/update_testsuite", formData, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.data;
+  },
+  deleteTestsuite: async (testsuiteId: string) => {
+    const response = await apiClient.delete(`/delete_testsuite/${testsuiteId}`);
     return response.data;
   },
 };
