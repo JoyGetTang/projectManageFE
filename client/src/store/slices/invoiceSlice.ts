@@ -11,6 +11,7 @@ export interface InvoiceState {
   statementCurrentPage: number;
   purchaseName: string;
   purchaseCurrentPage: number;
+  currentRole: string;
 }
 
 // 初始状态（带TS类型）
@@ -21,6 +22,7 @@ const initialState: InvoiceState = {
   statementCurrentPage: 1,
   purchaseName: "All",
   purchaseCurrentPage: 1,
+  currentRole: "",
 };
 
 // 持久化配置（切片级别，更精细）
@@ -34,6 +36,7 @@ const invoicePersistConfig = {
     "statementCurrentPage",
     "purchaseName",
     "purchaseCurrentPage",
+    "currentRole",
   ], // 仅持久化这些字段
 };
 
@@ -65,6 +68,11 @@ const invoiceSlice = createSlice({
     setCurrentPurchasePage: (state, action: PayloadAction<number>) => {
       state.purchaseCurrentPage = action.payload;
     },
+
+    setCurrentRole: (state, action: PayloadAction<string>) => {
+      state.currentRole = action.payload;
+    },
+
     clearStates: state => {
       state.invoiceName = "";
       state.currentPage = 1;
@@ -72,6 +80,7 @@ const invoiceSlice = createSlice({
       state.statementCurrentPage = 1;
       state.purchaseName = "";
       state.purchaseCurrentPage = 1;
+      // state.currentRole = "";
     },
   },
 });
@@ -85,6 +94,7 @@ export const {
   setSelectedPurchaseName,
   setCurrentPurchasePage,
   clearStates,
+  setCurrentRole,
 } = invoiceSlice.actions;
 
 // 包装为持久化Reducer并导出

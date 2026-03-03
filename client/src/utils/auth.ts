@@ -3,11 +3,12 @@ export const TOKEN_KEY = "admin_access_token";
 export const EXPIRES_IN_KEY = "token_expires_in"; // Token有效期（秒）
 
 // 存储Token和有效期
-export const setToken = (token: string, expiresIn: number) => {
+export const setToken = (token: string, expiresIn: number, role: string) => {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(EXPIRES_IN_KEY, expiresIn.toString());
   // 记录Token生成时间（用于前端计算剩余有效期）
   localStorage.setItem("token_create_time", Date.now().toString());
+  localStorage.setItem("role", role);
 };
 
 // 获取Token

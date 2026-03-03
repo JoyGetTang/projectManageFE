@@ -13,8 +13,8 @@ export interface ApiResponse<T = any> {
   data: T;
 }
 
-export const baseUrl = "https://sashaergou.cn/api";
-// export const baseUrl = "http://localhost:5000/api";
+// export const baseUrl = "https://sashaergou.cn/api";
+export const baseUrl = "http://localhost:8000/api";
 
 // 2. 定义 Axios 响应类型（泛型 T 为业务数据的 data 类型）
 type AxiosResponseWithApi<T = any> = AxiosResponse<ApiResponse<T>>;

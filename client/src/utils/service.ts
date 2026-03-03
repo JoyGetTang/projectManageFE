@@ -47,11 +47,10 @@ apiClient.interceptors.response.use(
 
 // API 服务接口定义
 interface InvoiceApiService {
-  getFiles: (fileType: string) => Promise<any>;
-  getFileData: (invoiceName: string, fileType: string) => Promise<any>;
-  deleteFilesData: (invoiceName: string, fileType: string) => Promise<any>;
-  uploadExcel: (formData: FormData, fileType: string) => Promise<any>;
-  downloadData: (filters: Record<string, any>) => Promise<AxiosResponse<Blob>>;
+  getProjects: () => Promise<any>;
+  createProjects: (data: any) => Promise<any>;
+  updateProject: (data: any) => Promise<any>;
+  deleteProject: (projectId: string) => Promise<any>;
 }
 
 // 登录API
@@ -72,77 +71,30 @@ export const apiService: InvoiceApiService = {
   /**
    * 获取文件列表
    */
-  getFiles: async (fileType: string) => {
-    const params = new URLSearchParams({ type: fileType });
-    const response = await apiClient.get("/invoices/files", {
-      params: Object.fromEntries(params),
-    });
+  getProjects: async () => {
+    const response = await apiClient.get("/projects");
     return response.data;
   },
 
-  getFileData: async (invoiceName: string, fileType: string) => {
-    const params = new URLSearchParams({
-      invoice: invoiceName,
-      fileType,
-    });
-
-    const response = await apiClient.get("/invoice", {
-      params: Object.fromEntries(params),
-      responseType: "blob",
-      transformResponse: [data => data],
-    });
-
-    // 解压并解析数据
-    const zip = new JSZip();
-    const zipContent = await zip.loadAsync(response.data);
-    const jsonFileName = invoiceName ? `${invoiceName}.json` : "all_data.json";
-    const jsonFile = zipContent.files[jsonFileName];
-
-    if (!jsonFile) {
-      throw new Error("压缩流中未找到发票数据文件");
-    }
-
-    const jsonStr = await jsonFile.async("text");
-    return JSON.parse(jsonStr);
-  },
-
-  deleteFilesData: async (invoiceName: string, fileType: string) => {
-    const params = new URLSearchParams({
-      invoice: invoiceName,
-      fileType,
-    });
-
-    const response = await apiClient.get("/invoice/delete", {
-      params: Object.fromEntries(params),
-    });
-    return response.data;
-  },
-
-  uploadExcel: async (formData: FormData, fileType: string) => {
-    const params = new URLSearchParams({ type: fileType });
-    const response = await apiClient.post("/upload-excel", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      params,
-    });
-    return response.data;
-  },
-
-  downloadData: async (filters: Record<string, any>) => {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value && value.trim()) {
-        params.append(key, value.trim());
-      }
-    });
-
-    return await apiClient.get("/download", {
-      params: Object.fromEntries(params),
-      responseType: "blob",
+  createProjects: async (formData: FormData) => {
+    const response = await apiClient.post("/create_projects", formData, {
       headers: {
         "Content-Type": "application/json",
       },
     });
+    return response.data;
+  },
+
+  updateProject: async (formData: FormData) => {
+    const response = await apiClient.put("/update_project", formData, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.data;
+  },
+  deleteProject: async (projectId: string) => {
+    const response = await apiClient.delete(`/delete_project/${projectId}`);
+    return response.data;
   },
 };
