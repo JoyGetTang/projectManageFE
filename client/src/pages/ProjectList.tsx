@@ -153,6 +153,19 @@ const ProjectList = () => {
     }
   };
 
+  const getSuiteStatusColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "inactive":
+        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+      case "archived":
+        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      default:
+        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+    }
+  };
+
   // 查看项目详情
   const handleViewProject = (project: Project) => {
     setSelectedProject(project);
@@ -475,11 +488,22 @@ const ProjectList = () => {
                     {new Date(project.startDate).toLocaleDateString()}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm overflow-hidden">
                   <span className="text-slate-100">Test Suite:</span>
                   <span>
                     {testSuites.find(s => s.id === project.testSuite)?.name ||
                       "-"}
+                  </span>
+                  <span
+                    className={`px-2 py-1 rounded text-xs border min-w-10 justify-center flex ${getSuiteStatusColor(testSuites.find(s => s.id === project.testSuite)?.status || "")}`}
+                  >
+                    {testSuites.find(s => s.id === project.testSuite)
+                      ?.status === "active"
+                      ? "Active"
+                      : testSuites.find(s => s.id === project.testSuite)
+                            ?.status === "inactive"
+                        ? "Inactive"
+                        : "Archived"}
                   </span>
                 </div>
               </div>
@@ -785,6 +809,18 @@ const ProjectList = () => {
                     <span>
                       {testSuites.find(s => s.id === selectedProject.testSuite)
                         ?.name || "-"}
+                    </span>
+                    <span
+                      className={`px-2 py-1 rounded text-xs border min-w-10 justify-center flex ${getSuiteStatusColor(testSuites.find(s => s.id === selectedProject.testSuite)?.status || "")}`}
+                    >
+                      {testSuites.find(s => s.id === selectedProject.testSuite)
+                        ?.status === "active"
+                        ? "Active"
+                        : testSuites.find(
+                              s => s.id === selectedProject.testSuite
+                            )?.status === "inactive"
+                          ? "Inactive"
+                          : "Archived"}
                     </span>
                   </div>
                   <div className="flex justify-between">
