@@ -3,9 +3,7 @@ import { Card } from "@/components/ui/card";
 import {
   Home,
   FileText,
-  ShoppingCart,
   Package,
-  Users,
   Settings,
   LogOut,
   Menu,
@@ -14,21 +12,18 @@ import {
   Edit,
   Trash2,
   Eye,
-  Calendar,
-  DollarSign,
-  TrendingUp,
-  ChevronDown,
   ArrowLeft,
   Database,
   TestTube,
-  Play,
   CheckCircle,
   AlertTriangle,
   FolderPlus,
   Save,
+  ChevronDown,
+  FilePlus,
 } from "lucide-react";
 import { useState, useEffect, JSX, useRef, useCallback } from "react";
-import { useLocation, useRoute } from "wouter";
+import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearStates } from "@/store/slices/invoiceSlice";
@@ -56,6 +51,7 @@ interface TestSuite {
   name: string;
   description: string;
   testCaseIds: string[];
+  status: "active" | "inactive" | "archived";
   createdDate: string;
   updatedDate: string;
 }
@@ -67,11 +63,6 @@ interface MenuItem {
   path: string;
 }
 
-interface Category {
-  id: string;
-  name: string;
-}
-
 const TestCaseManager = () => {
   const dispatch = useAppDispatch();
   const [, setLocation] = useLocation();
@@ -80,24 +71,10 @@ const TestCaseManager = () => {
   const [testSuites, setTestSuites] = useState<TestSuite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [selectedTestCase, setSelectedTestCase] = useState<
-    TestCase | null | any
-  >(null);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
-    null
-  );
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>(
     {}
   );
-
-  // 统一下拉菜单状态管理
-  const [dropdownStates, setDropdownStates] = useState({
-    category: false,
-    priority: false,
-    status: false,
-    createCategory: false,
-  });
 
   // 新增测试套件模态框状态
   const [showCreateSuiteModal, setShowCreateSuiteModal] = useState(false);
@@ -109,7 +86,11 @@ const TestCaseManager = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [suiteForm, setSuiteForm] = useState({ name: "", description: "" });
+  const [suiteForm, setSuiteForm] = useState({
+    name: "",
+    description: "",
+    status: "active" as "active" | "inactive" | "archived",
+  });
 
   // 用于显示测试套件详情页面的状态
   const [isSuiteDetailPage, setIsSuiteDetailPage] = useState(false);
@@ -119,9 +100,11 @@ const TestCaseManager = () => {
   const [newTestCaseForm, setNewTestCaseForm] = useState({
     name: "",
     description: "",
-    priority: "",
+    priority: "medium",
     steps: "",
     expectedResult: "",
+    category: "General",
+    status: "active",
   });
 
   // Edit test case modal state
@@ -142,6 +125,13 @@ const TestCaseManager = () => {
   // View test case details state
   const [isViewTestCaseModalOpen, setIsViewTestCaseModalOpen] = useState(false);
   const [viewTestCase, setViewTestCase] = useState<TestCase | null>(null);
+
+  // Add to test suite modal state
+  const [isAddToSuiteModalOpen, setIsAddToSuiteModalOpen] = useState(false);
+  const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(
+    null
+  );
+  const [selectedSuiteId, setSelectedSuiteId] = useState<string | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -165,7 +155,6 @@ const TestCaseManager = () => {
       icon: <FileText className="w-5 h-5" />,
       path: "/testcases/list",
     },
-
     {
       id: "create",
       title: "Create Test Case",
@@ -173,176 +162,49 @@ const TestCaseManager = () => {
       path: "/testcases/create",
     },
     // {
-    //   id: "execution",
-    //   title: "Execution History",
-    //   icon: <Play className="w-5 h-5" />,
-    //   path: "/testcases/execution",
+    //   id: "settings",
+    //   title: "Settings",
+    //   icon: <Settings className="w-5 h-5" />,
+    //   path: "/testcases/settings",
     // },
-    {
-      id: "settings",
-      title: "Settings",
-      icon: <Settings className="w-5 h-5" />,
-      path: "/testcases/settings",
-    },
   ];
 
-  const categories = [
-    { id: "1", name: "Login Functionality" },
-    { id: "2", name: "Payment Process" },
-    { id: "3", name: "User Profile" },
-    { id: "4", name: "Admin Panel" },
-    { id: "5", name: "API Integration" },
-  ];
-
-  // Mock test case data
+  // Load data from API
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const response = await apiService.getTestcases();
-        setTestCases(response);
+        // Load test cases
+        const testCasesResponse = await apiService.getTestcases();
+        if (testCasesResponse && Array.isArray(testCasesResponse)) {
+          setTestCases(testCasesResponse);
+        } else {
+          setTestCases([]);
+        }
       } catch (error) {
         console.error("Error loading test cases:", error);
         toast.error("Failed to load test case data");
-      } finally {
-        setIsLoading(false);
+        setTestCases([]); // Set empty array on error
       }
 
       try {
-        const response = await apiService.getTestSuites();
-        setTestSuites(response);
+        // Load test suites
+        const testSuitesResponse = await apiService.getTestSuites();
+        if (testSuitesResponse && Array.isArray(testSuitesResponse)) {
+          setTestSuites(testSuitesResponse);
+        } else {
+          setTestSuites([]);
+        }
       } catch (error) {
-        console.error("Error loading test cases:", error);
-        toast.error("Failed to load test case data");
+        console.error("Error loading test suites:", error);
+        toast.error("Failed to load test suite data");
+        setTestSuites([]); // Set empty array on error
       } finally {
         setIsLoading(false);
       }
     };
 
     loadData();
-    const mockTestCases: TestCase[] = [
-      {
-        id: "1",
-        name: "Login with valid credentials",
-        description:
-          "Verify that users can login with correct username and password. This test ensures that the authentication system works properly when provided with valid credentials.",
-        category: "Login Functionality",
-        priority: "high",
-        status: "active",
-        steps: [
-          "Navigate to login page",
-          "Enter valid username",
-          "Enter valid password",
-          "Click login button",
-        ],
-        expectedResult: "User should be redirected to dashboard",
-        lastRunDate: "2024-01-15",
-        lastRunStatus: "passed",
-        createdDate: "2024-01-10",
-        updatedDate: "2024-01-15",
-      },
-      {
-        id: "2",
-        name: "Login with invalid credentials",
-        description:
-          "Verify that users cannot login with incorrect username or password. This test ensures that the authentication system properly rejects invalid credentials and displays appropriate error messages.",
-        category: "Login Functionality",
-        priority: "high",
-        status: "active",
-        steps: [
-          "Navigate to login page",
-          "Enter invalid username",
-          "Enter invalid password",
-          "Click login button",
-        ],
-        expectedResult: "Error message should be displayed",
-        lastRunDate: "2024-01-14",
-        lastRunStatus: "passed",
-        createdDate: "2024-01-09",
-        updatedDate: "2024-01-14",
-      },
-      {
-        id: "3",
-        name: "Process payment with valid card",
-        description:
-          "Verify that payments are processed successfully with valid credit card information. This test covers the complete payment flow including validation and confirmation.",
-        category: "Payment Process",
-        priority: "medium",
-        status: "active",
-        steps: [
-          "Add items to cart",
-          "Proceed to checkout",
-          "Enter valid card details",
-          "Complete payment",
-        ],
-        expectedResult: "Order should be confirmed with success message",
-        lastRunDate: "2024-01-13",
-        lastRunStatus: "failed",
-        createdDate: "2024-01-08",
-        updatedDate: "2024-01-13",
-      },
-      {
-        id: "4",
-        name: "Update user profile information",
-        description:
-          "Verify that users can update their personal information in profile settings. This includes updating name, email, phone number, and other profile details.",
-        category: "User Profile",
-        priority: "medium",
-        status: "active",
-        steps: [
-          "Navigate to profile page",
-          "Edit profile fields",
-          "Save changes",
-        ],
-        expectedResult: "Profile information should be updated successfully",
-        createdDate: "2024-01-07",
-        updatedDate: "2024-01-07",
-      },
-      {
-        id: "5",
-        name: "Delete user account",
-        description:
-          "Verify that users can delete their accounts permanently. This test ensures proper account deletion process and data removal.",
-        category: "User Profile",
-        priority: "low",
-        status: "archived",
-        steps: [
-          "Navigate to account settings",
-          "Select delete account option",
-          "Confirm deletion",
-        ],
-        expectedResult: "Account should be deleted permanently",
-        createdDate: "2024-01-05",
-        updatedDate: "2024-01-06",
-      },
-    ];
-
-    const mockTestSuites: TestSuite[] = [
-      {
-        id: "1",
-        name: "Login Module Tests",
-        description: "All tests related to login functionality",
-        testCaseIds: ["1", "2"],
-        createdDate: "2024-01-10",
-        updatedDate: "2024-01-15",
-      },
-      {
-        id: "2",
-        name: "Payment Module Tests",
-        description: "All tests related to payment processing",
-        testCaseIds: ["3"],
-        createdDate: "2024-01-12",
-        updatedDate: "2024-01-12",
-      },
-      {
-        id: "3",
-        name: "User Profile Tests",
-        description: "All tests related to user profile management",
-        testCaseIds: ["4", "5"],
-        createdDate: "2024-01-08",
-        updatedDate: "2024-01-09",
-      },
-    ];
   }, []);
 
   // 获取当前套件的测试用例
@@ -355,7 +217,7 @@ const TestCaseManager = () => {
   const handleViewClick = (suite: TestSuite) => {
     setCurrentSuite(suite);
     setIsSuiteDetailPage(true);
-    setActiveTab("suite-detail"); // 新增标签页类型
+    setActiveTab("suite-detail");
   };
 
   // 返回测试套件列表
@@ -368,6 +230,11 @@ const TestCaseManager = () => {
   // 处理编辑按钮点击
   const handleEditClick = (suite: TestSuite) => {
     setCurrentSuite(suite);
+    setSuiteForm({
+      name: suite.name,
+      description: suite.description,
+      status: suite.status,
+    });
     setIsEditModalOpen(true);
   };
 
@@ -382,44 +249,59 @@ const TestCaseManager = () => {
     e.preventDefault();
     if (!currentSuite) return;
 
-    const formData = new FormData(e.target as HTMLFormElement);
-    console.log(formData);
-
     const updatedSuite = {
-      ...currentSuite,
-      name: formData.get("name") as string,
-      description: formData.get("description") as string,
+      id: currentSuite.id,
+      name: suiteForm.name,
+      description: suiteForm.description,
+      status: suiteForm.status,
+      testCaseIds: currentSuite.testCaseIds,
       updatedDate: new Date().toISOString().split("T")[0],
     };
 
     try {
-      // 调用API更新项目
-      await apiService.updateTestsuite(updatedSuite);
+      // 调用API更新测试套件
+      const response = await apiService.updateTestsuite(updatedSuite);
+
+      if (response && response.code !== 200) {
+        throw new Error(response.message || "Failed to update test suite");
+      }
 
       // 更新本地状态
       setTestSuites(prevSuites =>
         prevSuites.map(suite =>
-          suite.id === currentSuite.id ? updatedSuite : suite
+          suite.id === currentSuite.id
+            ? { ...suite, ...updatedSuite, createdDate: suite.createdDate } // 保持原有的 createdDate
+            : suite
         )
       );
 
       toast.success("Test suite updated successfully!");
       setIsEditModalOpen(false);
+      setCurrentSuite(null);
     } catch (error) {
       console.error("Error updating test suite:", error);
-      toast.error("Failed to update test suite - please try again ");
+      toast.error("Failed to update test suite - please try again");
     }
   };
 
   // 确认删除
   const confirmDelete = async () => {
-    try {
-      // 调用API删除项目
-      await apiService.deleteTestsuite(currentSuite!.id);
+    if (!currentSuite) {
+      toast.error("No test suite selected for deletion");
+      return;
+    }
 
-      // 从本地状态移除项目
+    try {
+      // 调用API删除测试套件
+      const response = await apiService.deleteTestsuite(currentSuite.id);
+
+      if (response && response.code !== 200) {
+        throw new Error(response.message || "Failed to delete test suite");
+      }
+
+      // 从本地状态移除测试套件
       setTestSuites(prevSuites =>
-        prevSuites.filter(suite => suite.id !== currentSuite!.id)
+        prevSuites.filter(suite => suite.id !== currentSuite.id)
       );
 
       toast.success("Test suite deleted successfully!");
@@ -427,10 +309,9 @@ const TestCaseManager = () => {
       console.error("Error deleting test suite:", error);
       toast.error("Failed to delete test suite");
     } finally {
+      setIsDeleteModalOpen(false);
       setCurrentSuite(null);
     }
-    setIsDeleteModalOpen(false);
-    toast.success(`Test suite "${currentSuite?.name}" deleted successfully!`);
   };
 
   // 关闭所有模态框
@@ -439,7 +320,7 @@ const TestCaseManager = () => {
     setIsEditModalOpen(false);
     setIsDeleteModalOpen(false);
     setCurrentSuite(null);
-    setSuiteForm({ name: "", description: "" });
+    setSuiteForm({ name: "", description: "", status: "active" });
   };
 
   const closeAddTestCaseModal = () => {
@@ -447,13 +328,15 @@ const TestCaseManager = () => {
     setNewTestCaseForm({
       name: "",
       description: "",
-      priority: "",
+      priority: "medium",
       steps: "",
       expectedResult: "",
+      category: "General",
+      status: "active",
     });
   };
 
-  const handleAddTestCaseSubmit = () => {
+  const handleAddTestCaseSubmit = async () => {
     if (!newTestCaseForm.name.trim()) {
       toast.error("Test case name is required");
       return;
@@ -463,31 +346,47 @@ const TestCaseManager = () => {
       id: `tc_${Date.now()}`,
       name: newTestCaseForm.name,
       description: newTestCaseForm.description,
-      category: currentSuite ? currentSuite.name : "General",
-      priority:
-        (newTestCaseForm.priority as "high" | "medium" | "low") || "medium",
-      status: "active",
+      category: newTestCaseForm.category,
+      priority: newTestCaseForm.priority as "high" | "medium" | "low",
+      status: newTestCaseForm.status as "active" | "inactive" | "archived",
       steps: newTestCaseForm.steps.split("\n").filter(step => step.trim()),
       expectedResult: newTestCaseForm.expectedResult,
       createdDate: new Date().toISOString().split("T")[0],
       updatedDate: new Date().toISOString().split("T")[0],
     };
 
-    setTestCases(prev => [...prev, newTestCase]);
+    try {
+      // 调用API创建测试用例
+      const response = await apiService.createTestcase(newTestCase);
 
-    // If we're in a suite detail page, add to the current suite too
-    if (currentSuite) {
-      setTestSuites(prev =>
-        prev.map(suite =>
-          suite.id === currentSuite.id
-            ? { ...suite, testCaseIds: [...suite.testCaseIds, newTestCase.id] }
-            : suite
-        )
-      );
+      if (response && response.code !== 200) {
+        throw new Error(response.message || "Failed to create test case");
+      }
+
+      // 重新加载测试用例
+      const updatedTestCases = await apiService.getTestcases();
+      setTestCases(updatedTestCases);
+
+      // 如果在套件详情页，也更新套件关联
+      if (currentSuite) {
+        setTestSuites(prev =>
+          prev.map(suite =>
+            suite.id === currentSuite.id
+              ? {
+                  ...suite,
+                  testCaseIds: [...suite.testCaseIds, newTestCase.id],
+                }
+              : suite
+          )
+        );
+      }
+
+      closeAddTestCaseModal();
+      toast.success(`Test case "${newTestCaseForm.name}" added successfully!`);
+    } catch (error) {
+      console.error("Error creating test case:", error);
+      toast.error("Failed to create test case - please try again");
     }
-
-    closeAddTestCaseModal();
-    toast.success(`Test case "${newTestCaseForm.name}" added successfully!`);
   };
 
   const handleLogout = () => {
@@ -520,35 +419,32 @@ const TestCaseManager = () => {
       id: `suite_${Date.now()}`,
       name: newSuiteName.trim(),
       description: newSuiteDescription.trim(),
+      status: "active", // 默认状态为 active
       testCaseIds: [],
       createdDate: new Date().toISOString().split("T")[0],
       updatedDate: new Date().toISOString().split("T")[0],
     };
 
-    // 添加到测试套件列表
     try {
+      // 调用API创建测试套件
       const response = await apiService.createTestsuite(newSuite);
-      if (response.code === 200) {
-        // 重新加载项目列表
-        const updatedTestSuites = await apiService.getTestSuites();
-        setTestSuites(updatedTestSuites);
 
-        toast.success("Test suite created successfully!");
-      } else {
-        toast.error("Failed to create test suite");
+      if (response && response.code !== 200) {
+        throw new Error(response.message || "Failed to create test suite");
       }
+
+      // 重新加载测试套件列表
+      const updatedTestSuites = await apiService.getTestSuites();
+      setTestSuites(updatedTestSuites);
+
+      toast.success(`Test suite "${newSuiteName}" created successfully!`);
+      setShowCreateSuiteModal(false);
+      setNewSuiteName("");
+      setNewSuiteDescription("");
     } catch (error) {
       console.error("Error creating test suite:", error);
-      toast.error("Failed to create test suite  - please try again");
+      toast.error("Failed to create test suite - please try again");
     }
-    // 关闭模态框
-    setShowCreateSuiteModal(false);
-
-    // 重置表单
-    setNewSuiteName("");
-    setNewSuiteDescription("");
-
-    toast.success(`Test suite "${newSuiteName}" created successfully!`);
   };
 
   const handleBack = useCallback(() => {
@@ -595,15 +491,7 @@ const TestCaseManager = () => {
     }
   };
 
-  // 切换特定下拉菜单的状态
-  const toggleDropdown = (dropdownKey: keyof typeof dropdownStates) => {
-    setDropdownStates(prev => ({
-      ...prev,
-      [dropdownKey]: !prev[dropdownKey],
-    }));
-  };
-
-  const editTestCase = (id: string) => {
+  const editTestCase = async (id: string) => {
     const testCase = testCases.find(tc => tc.id === id);
     if (testCase) {
       setEditTestCaseForm({ ...testCase });
@@ -616,32 +504,117 @@ const TestCaseManager = () => {
     setIsViewTestCaseModalOpen(true);
   };
 
-  const handleEditTestCaseSubmit = () => {
+  const handleEditTestCaseSubmit = async () => {
     if (!editTestCaseForm.name.trim()) {
       toast.error("Test case name is required");
       return;
     }
 
-    setTestCases(prev =>
-      prev.map(tc =>
-        tc.id === editTestCaseForm.id
-          ? {
-              ...tc,
-              ...editTestCaseForm,
-              updatedDate: new Date().toISOString().split("T")[0],
-            }
-          : tc
-      )
-    );
+    try {
+      // 调用API更新测试用例
+      const response = await apiService.updateTestcase(editTestCaseForm);
 
-    setIsEditTestCaseModalOpen(false);
-    toast.success(`Test case "${editTestCaseForm.name}" updated successfully!`);
+      if (response && response.code !== 200) {
+        throw new Error(response.message || "Failed to update test case");
+      }
+
+      // 重新加载测试用例
+      const updatedTestCases = await apiService.getTestcases();
+      setTestCases(updatedTestCases);
+
+      setIsEditTestCaseModalOpen(false);
+      toast.success(
+        `Test case "${editTestCaseForm.name}" updated successfully!`
+      );
+    } catch (error) {
+      console.error("Error updating test case:", error);
+      toast.error("Failed to update test case - please try again");
+    }
   };
 
-  const deleteTestCase = (id: string) => {
-    if (confirm(`Are you sure you want to delete test case ${id}?`)) {
-      setTestCases(prev => prev.filter(tc => tc.id !== id));
+  const deleteTestCase = async (id: string) => {
+    if (!confirm(`Are you sure you want to delete test case ${id}?`)) {
+      return;
+    }
+
+    try {
+      // 调用API删除测试用例
+      const response = await apiService.deleteTestcase(id);
+
+      if (response && response.code !== 200) {
+        throw new Error(response.message || "Failed to delete test case");
+      }
+
+      // 重新加载测试用例
+      const updatedTestCases = await apiService.getTestcases();
+      setTestCases(updatedTestCases);
+
       toast.success(`Test case ${id} deleted successfully`);
+    } catch (error) {
+      console.error("Error deleting test case:", error);
+      toast.error("Failed to delete test case");
+    }
+  };
+
+  // Add test case to test suite functionality
+  const addToTestSuite = (testCaseId: string) => {
+    setSelectedTestCaseId(testCaseId);
+    setSelectedSuiteId(null); // Reset selection
+    setIsAddToSuiteModalOpen(true);
+  };
+
+  const handleAddToSuiteSubmit = async () => {
+    if (!selectedTestCaseId || !selectedSuiteId) {
+      toast.error("Please select both a test case and a test suite");
+      return;
+    }
+
+    try {
+      // Find the target test suite
+      const targetSuite = testSuites.find(
+        suite => suite.id === selectedSuiteId
+      );
+      if (!targetSuite) {
+        throw new Error("Selected test suite not found");
+      }
+
+      // Check if test case is already in the suite
+      if (targetSuite.testCaseIds.includes(selectedTestCaseId)) {
+        toast.warning("Test case is already in this test suite");
+        setIsAddToSuiteModalOpen(false);
+        return;
+      }
+
+      // Update the test suite with the new test case
+      const updatedSuite = {
+        ...targetSuite,
+        testCaseIds: [...targetSuite.testCaseIds, selectedTestCaseId],
+        updatedDate: new Date().toISOString().split("T")[0],
+      };
+
+      // Call API to update the test suite
+      const response = await apiService.updateTestsuite(updatedSuite);
+
+      if (response && response.code !== 200) {
+        throw new Error(response.message || "Failed to add test case to suite");
+      }
+
+      // Update local state
+      setTestSuites(prevSuites =>
+        prevSuites.map(suite =>
+          suite.id === selectedSuiteId ? updatedSuite : suite
+        )
+      );
+
+      toast.success("Test case added to suite successfully!");
+      setIsAddToSuiteModalOpen(false);
+
+      // Clear selections
+      setSelectedTestCaseId(null);
+      setSelectedSuiteId(null);
+    } catch (error) {
+      console.error("Error adding test case to suite:", error);
+      toast.error("Failed to add test case to suite - please try again");
     }
   };
 
@@ -750,7 +723,7 @@ const TestCaseManager = () => {
                   </p>
                 </div>
                 <span className="px-2 py-1 rounded text-xs border bg-cyan-500/20 text-cyan-400 border-cyan-500/30">
-                  Active
+                  {suite.status || "Active"}
                 </span>
               </div>
             ))}
@@ -789,8 +762,8 @@ const TestCaseManager = () => {
               <tr className="border-b border-slate-700">
                 <th className="pb-3 text-left">Name</th>
                 <th className="pb-3 text-left">Priority</th>
-                {/* <th className="pb-3 text-left">Last Run</th> */}
-                {/* <th className="pb-3 text-left">Actions</th> */}
+                <th className="pb-3 text-left">Status</th>
+                <th className="pb-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -823,50 +796,52 @@ const TestCaseManager = () => {
                           {testCase.priority}
                         </span>
                       </td>
-                      {/* <td className="py-3">
-                        {testCase.lastRunDate ? (
-                          <div>
-                            <div>{testCase.lastRunDate}</div>
-                            {testCase.lastRunStatus && (
-                              <div
-                                className={`mt-1 px-2 py-1 rounded text-xs border ${getRunStatusColor(testCase.lastRunStatus)}`}
-                              >
-                                {testCase.lastRunStatus}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-500">Never</span>
-                        )}
-                      </td> */}
-                      <td className="py-3 flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center gap-1"
-                          onClick={() => viewTestCaseDetails(testCase)}
+                      <td className="py-3">
+                        <span
+                          className={`px-2 py-1 rounded text-xs border ${getStatusColor(testCase.status)}`}
                         >
-                          <Eye className="w-4 h-4" />
-                          View
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center gap-1"
-                          onClick={() => editTestCase(testCase.id)}
-                        >
-                          <Edit className="w-4 h-4" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="flex items-center gap-1"
-                          onClick={() => deleteTestCase(testCase.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete
-                        </Button>
+                          {testCase.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => viewTestCaseDetails(testCase)}
+                          >
+                            <Eye className="w-4 h-4" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => editTestCase(testCase.id)}
+                          >
+                            <Edit className="w-4 h-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => addToTestSuite(testCase.id)}
+                          >
+                            <FilePlus className="w-4 h-4" />
+                            Add to suite
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => deleteTestCase(testCase.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </Button>
+                        </div>
                       </td>
                     </tr>
 
@@ -917,7 +892,7 @@ const TestCaseManager = () => {
                 {suite.name}
               </h3>
               <span className="px-2 py-1 rounded text-xs border bg-cyan-500/20 text-cyan-400 border-cyan-500/30">
-                Active
+                {suite.status || "Active"}
               </span>
             </div>
 
@@ -1028,8 +1003,7 @@ const TestCaseManager = () => {
                   <th className="pb-3 text-left">Category</th>
                   <th className="pb-3 text-left">Priority</th>
                   <th className="pb-3 text-left">Status</th>
-                  {/* <th className="pb-3 text-left">Last Run</th> */}
-                  {/* <th className="pb-3 text-left">Actions</th> */}
+                  <th className="pb-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1076,50 +1050,36 @@ const TestCaseManager = () => {
                             {testCase.status}
                           </span>
                         </td>
-                        {/* <td className="py-3">
-                          {testCase.lastRunDate ? (
-                            <div>
-                              <div>{testCase.lastRunDate}</div>
-                              {testCase.lastRunStatus && (
-                                <div
-                                  className={`mt-1 px-2 py-1 rounded text-xs border ${getRunStatusColor(testCase.lastRunStatus)}`}
-                                >
-                                  {testCase.lastRunStatus}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-slate-500">Never</span>
-                          )}
-                        </td> */}
-                        <td className="py-3 flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-1"
-                            onClick={() => viewTestCaseDetails(testCase)}
-                          >
-                            <Eye className="w-4 h-4" />
-                            View
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-1"
-                            onClick={() => editTestCase(testCase.id)}
-                          >
-                            <Edit className="w-4 h-4" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="flex items-center gap-1"
-                            onClick={() => deleteTestCase(testCase.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            Remove
-                          </Button>
+                        <td className="py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center gap-1"
+                              onClick={() => viewTestCaseDetails(testCase)}
+                            >
+                              <Eye className="w-4 h-4" />
+                              View
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center gap-1"
+                              onClick={() => editTestCase(testCase.id)}
+                            >
+                              <Edit className="w-4 h-4" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="flex items-center gap-1"
+                              onClick={() => deleteTestCase(testCase.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </Button>
+                          </div>
                         </td>
                       </tr>
 
@@ -1127,7 +1087,7 @@ const TestCaseManager = () => {
                       {expandedRows[testCase.id] && (
                         <tr>
                           <td
-                            colSpan={6}
+                            colSpan={5}
                             className="pt-2 pb-4 px-4 bg-slate-800/30 border-t border-slate-700"
                           >
                             <div className="font-medium mb-1">Description:</div>
@@ -1185,114 +1145,153 @@ const TestCaseManager = () => {
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">Create New Test Case</h2>
             <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2 required-field">
-                    Test Case Name *
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-                    placeholder="Input test case name..."
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
-                    placeholder="Input test case description..."
-                  ></textarea>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2">
-                    Priority
-                  </label>
-                  <div className="relative" ref={dropdownRef as any}>
-                    <button
-                      type="button"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all flex items-center justify-between"
-                      onClick={() => toggleDropdown("priority")}
-                    >
-                      <span>
-                        {selectedTestCase?.priority || "Select priority..."}
-                      </span>
-                      {selectedTestCase?.priority && (
-                        <button
-                          type="button"
-                          className="ml-2 text-slate-400 hover:text-white"
-                          onClick={e => {
-                            e.stopPropagation();
-                            setSelectedTestCase({
-                              ...selectedTestCase,
-                              priority: undefined,
-                            });
-                          }}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                      <ChevronDown
-                        className={`w-4 h-4 ml-2 transition-transform ${dropdownStates.priority ? "rotate-180" : ""}`}
-                      />
-                    </button>
-
-                    {dropdownStates.priority && (
-                      <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto">
-                        {["high", "medium", "low"].map(priority => (
-                          <div
-                            key={priority}
-                            className="px-3 py-2 hover:bg-slate-700 cursor-pointer"
-                            onClick={() => {
-                              setSelectedTestCase({
-                                ...selectedTestCase,
-                                priority: priority as any,
-                              });
-                              toggleDropdown("priority");
-                            }}
-                          >
-                            {priority.charAt(0).toUpperCase() +
-                              priority.slice(1)}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  handleAddTestCaseSubmit();
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-100 mb-2 required-field">
+                      Test Case Name *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                      placeholder="Input test case name..."
+                      required
+                      value={newTestCaseForm.name}
+                      onChange={e =>
+                        setNewTestCaseForm({
+                          ...newTestCaseForm,
+                          name: e.target.value,
+                        })
+                      }
+                    />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2">
-                    Steps
-                  </label>
-                  <textarea
-                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
-                    placeholder="Enter test steps (one per line)"
-                  ></textarea>
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-100 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                      placeholder="Input test case description..."
+                      value={newTestCaseForm.description}
+                      onChange={e =>
+                        setNewTestCaseForm({
+                          ...newTestCaseForm,
+                          description: e.target.value,
+                        })
+                      }
+                    ></textarea>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2">
-                    Expected Result
-                  </label>
-                  <textarea
-                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
-                    placeholder="Enter expected result"
-                  ></textarea>
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-100 mb-2">
+                      Category
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                      placeholder="Input category..."
+                      value={newTestCaseForm.category}
+                      onChange={e =>
+                        setNewTestCaseForm({
+                          ...newTestCaseForm,
+                          category: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
 
-                <Button
-                  className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 mt-4"
-                  onClick={() =>
-                    toast.success("Test case created successfully!")
-                  }
-                >
-                  Create Test Case
-                </Button>
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-100 mb-2">
+                      Priority
+                    </label>
+                    <select
+                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                      value={newTestCaseForm.priority}
+                      onChange={e =>
+                        setNewTestCaseForm({
+                          ...newTestCaseForm,
+                          priority: e.target.value as "high" | "medium" | "low",
+                        })
+                      }
+                    >
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-100 mb-2">
+                      Status
+                    </label>
+                    <select
+                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                      value={newTestCaseForm.status}
+                      onChange={e =>
+                        setNewTestCaseForm({
+                          ...newTestCaseForm,
+                          status: e.target.value as
+                            | "active"
+                            | "inactive"
+                            | "archived",
+                        })
+                      }
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-100 mb-2">
+                      Steps
+                    </label>
+                    <textarea
+                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                      placeholder="Enter test steps (one per line)"
+                      value={newTestCaseForm.steps}
+                      onChange={e =>
+                        setNewTestCaseForm({
+                          ...newTestCaseForm,
+                          steps: e.target.value,
+                        })
+                      }
+                    ></textarea>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-100 mb-2">
+                      Expected Result
+                    </label>
+                    <textarea
+                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all h-24"
+                      placeholder="Enter expected result"
+                      value={newTestCaseForm.expectedResult}
+                      onChange={e =>
+                        setNewTestCaseForm({
+                          ...newTestCaseForm,
+                          expectedResult: e.target.value,
+                        })
+                      }
+                    ></textarea>
+                  </div>
+
+                  <Button
+                    className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 mt-4"
+                    type="submit"
+                  >
+                    Create Test Case
+                  </Button>
+                </div>
+              </form>
             </Card>
           </div>
         );
@@ -1304,76 +1303,25 @@ const TestCaseManager = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-100 mb-2">
-                    Manage Categories
-                  </label>
-                  <div className="space-y-2">
-                    {categories.map(category => (
-                      <div
-                        key={category.id}
-                        className="flex items-center justify-between p-2 bg-slate-700/30 rounded"
-                      >
-                        <span>{category.name}</span>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline">
-                            Edit
-                          </Button>
-                          <Button size="sm" variant="destructive">
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2">
-                    Add New Category
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-                      placeholder="New category name"
-                    />
-                    <Button className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30">
-                      Add
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-100 mb-2">
                     Default Status
                   </label>
-                  <div className="relative" ref={dropdownRef as any}>
-                    <button
-                      type="button"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all flex items-center justify-between"
-                      onClick={() => toggleDropdown("status")}
-                    >
-                      <span>Active</span>
-                      <ChevronDown
-                        className={`w-4 h-4 ml-2 transition-transform ${dropdownStates.status ? "rotate-180" : ""}`}
-                      />
-                    </button>
-
-                    {dropdownStates.status && (
-                      <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto">
-                        {["active", "inactive", "archived"].map(status => (
-                          <div
-                            key={status}
-                            className="px-3 py-2 hover:bg-slate-700 cursor-pointer"
-                            onClick={() => {
-                              toggleDropdown("status");
-                            }}
-                          >
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <select
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                    value={newTestCaseForm.status}
+                    onChange={e =>
+                      setNewTestCaseForm({
+                        ...newTestCaseForm,
+                        status: e.target.value as
+                          | "active"
+                          | "inactive"
+                          | "archived",
+                      })
+                    }
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="archived">Archived</option>
+                  </select>
                 </div>
 
                 <Button
@@ -1508,6 +1456,62 @@ const TestCaseManager = () => {
         </div>
       )}
 
+      {/* Add to Test Suite Modal */}
+      {isAddToSuiteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-md bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 relative">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Add Test Case to Suite</h3>
+              <Button
+                onClick={() => setIsAddToSuiteModalOpen(false)}
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Select Test Suite
+                </label>
+                <select
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  value={selectedSuiteId || ""}
+                  onChange={e => setSelectedSuiteId(e.target.value)}
+                >
+                  <option value="">Select a test suite...</option>
+                  {testSuites.map(suite => (
+                    <option key={suite.id} value={suite.id}>
+                      {suite.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setIsAddToSuiteModalOpen(false)}
+                className="border-slate-700 text-slate-100 hover:bg-slate-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30"
+                onClick={handleAddToSuiteSubmit}
+                disabled={!selectedSuiteId}
+              >
+                Add to Suite
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Add Test Case Modal */}
       {isAddTestCaseModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -1563,6 +1567,24 @@ const TestCaseManager = () => {
 
               <div>
                 <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Category
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  placeholder="Input category..."
+                  value={newTestCaseForm.category}
+                  onChange={e =>
+                    setNewTestCaseForm({
+                      ...newTestCaseForm,
+                      category: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
                   Priority
                 </label>
                 <select
@@ -1571,14 +1593,36 @@ const TestCaseManager = () => {
                   onChange={e =>
                     setNewTestCaseForm({
                       ...newTestCaseForm,
-                      priority: e.target.value,
+                      priority: e.target.value as "high" | "medium" | "low",
                     })
                   }
                 >
-                  <option value="">Select priority...</option>
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-100 mb-2">
+                  Status
+                </label>
+                <select
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                  value={newTestCaseForm.status}
+                  onChange={e =>
+                    setNewTestCaseForm({
+                      ...newTestCaseForm,
+                      status: e.target.value as
+                        | "active"
+                        | "inactive"
+                        | "archived",
+                    })
+                  }
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="archived">Archived</option>
                 </select>
               </div>
 
@@ -1874,30 +1918,6 @@ const TestCaseManager = () => {
                     </label>
                     <p className="text-slate-100">{viewTestCase.updatedDate}</p>
                   </div>
-                  {/* {viewTestCase.lastRunDate && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">
-                          Last Run Date
-                        </label>
-                        <p className="text-slate-100">
-                          {viewTestCase.lastRunDate}
-                        </p>
-                      </div>
-                      {viewTestCase.lastRunStatus && (
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-1">
-                            Last Run Status
-                          </label>
-                          <span
-                            className={`px-2 py-1 rounded text-xs border ${getRunStatusColor(viewTestCase.lastRunStatus)}`}
-                          >
-                            {viewTestCase.lastRunStatus}
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  )} */}
                 </div>
               </div>
 
@@ -1913,11 +1933,9 @@ const TestCaseManager = () => {
                   Test Steps
                 </h4>
                 <ol className="list-decimal list-inside space-y-2">
-                  {viewTestCase.steps.map((step, index) => (
-                    <li key={index} className="text-slate-300 pl-2">
-                      {step}
-                    </li>
-                  ))}
+                  <span className="text-slate-300 pl-2">
+                    {viewTestCase.steps}
+                  </span>
                 </ol>
               </div>
 
@@ -1958,7 +1976,7 @@ const TestCaseManager = () => {
                     <th className="text-left p-3 text-slate-300">Name</th>
                     <th className="text-left p-3 text-slate-300">Priority</th>
                     <th className="text-left p-3 text-slate-300">Status</th>
-                    {/* <th className="text-left p-3 text-slate-300">Last Run</th> */}
+                    <th className="text-right p-3 text-slate-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1985,22 +2003,37 @@ const TestCaseManager = () => {
                           {testCase.status}
                         </span>
                       </td>
-                      {/* <td className="p-3">
-                        {testCase.lastRunDate ? (
-                          <div>
-                            <div>{testCase.lastRunDate}</div>
-                            {testCase.lastRunStatus && (
-                              <div
-                                className={`mt-1 px-2 py-1 rounded text-xs border ${getRunStatusColor(testCase.lastRunStatus)}`}
-                              >
-                                {testCase.lastRunStatus}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-500">Never</span>
-                        )}
-                      </td> */}
+                      <td className="p-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => viewTestCaseDetails(testCase)}
+                          >
+                            <Eye className="w-4 h-4" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => editTestCase(testCase.id)}
+                          >
+                            <Edit className="w-4 h-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="flex items-center gap-1"
+                            onClick={() => deleteTestCase(testCase.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -2056,6 +2089,29 @@ const TestCaseManager = () => {
                       })
                     }
                   ></textarea>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-100 mb-2">
+                    Status
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
+                    value={suiteForm.status}
+                    onChange={e =>
+                      setSuiteForm({
+                        ...suiteForm,
+                        status: e.target.value as
+                          | "active"
+                          | "inactive"
+                          | "archived",
+                      })
+                    }
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="archived">Archived</option>
+                  </select>
                 </div>
               </div>
 

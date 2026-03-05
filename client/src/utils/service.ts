@@ -56,6 +56,9 @@ interface InvoiceApiService {
   createTestsuite: (data: any) => Promise<any>;
   updateTestsuite: (data: any) => Promise<any>;
   deleteTestsuite: (testsuiteId: string) => Promise<any>;
+  createTestcase: (data: any) => Promise<any>;
+  updateTestcase: (data: any) => Promise<any>;
+  deleteTestcase: (testcaseId: string) => Promise<any>;
 }
 
 // 登录API
@@ -131,6 +134,27 @@ export const apiService: InvoiceApiService = {
   },
   deleteTestsuite: async (testsuiteId: string) => {
     const response = await apiClient.delete(`/delete_testsuite/${testsuiteId}`);
+    return response.data;
+  },
+
+  createTestcase: async (formData: FormData) => {
+    const response = await apiClient.post("/create_testcase", formData, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.data;
+  },
+  updateTestcase: async (formData: FormData) => {
+    const response = await apiClient.put("/update_testcase", formData, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response.data;
+  },
+  deleteTestcase: async (testcaseId: string) => {
+    const response = await apiClient.delete(`/delete_testcase/${testcaseId}`);
     return response.data;
   },
 };

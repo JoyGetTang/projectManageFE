@@ -16,6 +16,7 @@ import {
   Calendar,
   TrendingUp,
   ArrowLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useState, useEffect, JSX, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
@@ -25,14 +26,30 @@ import { clearStates } from "@/store/slices/invoiceSlice";
 import { navigate } from "wouter/use-browser-location";
 import { apiService } from "@/utils/service";
 
+interface TestSuite {
+  id: string;
+  name: string;
+  description: string;
+  testCaseIds: string[];
+  createdDate: string;
+  updatedDate: string;
+  status: "active" | "inactive" | "archived";
+}
+
 interface Project {
   id: string;
   name: string;
   description: string;
   status: "active" | "completed" | "pending";
   startDate: string;
+  endDate?: string;
   manager: string;
+  teamMembers: string[];
+  budget: number;
+  progress: number;
   testSuite?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface MenuItem {
@@ -54,6 +71,9 @@ const ProjectList = () => {
     null
   );
   const [showEditModal, setShowEditModal] = useState(false);
+  const [testSuites, setTestSuites] = useState<TestSuite[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Mock menu items
@@ -84,16 +104,21 @@ const ProjectList = () => {
     },
   ];
 
-  // 加载项目数据
+  // 加载项目和测试套件数据
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const response = await apiService.getProjects();
-        setProjects(response);
+        const [projectsResponse, testSuitesResponse] = await Promise.all([
+          apiService.getProjects(),
+          apiService.getTestSuites(),
+        ]);
+
+        setProjects(projectsResponse);
+        setTestSuites(testSuitesResponse);
       } catch (error) {
-        console.error("Error loading projects:", error);
-        toast.error("Failed to load project data");
+        console.error("Error loading data:", error);
+        toast.error("Failed to load project and test suite data");
       } finally {
         setIsLoading(false);
       }
@@ -128,6 +153,12 @@ const ProjectList = () => {
     }
   };
 
+  // 查看项目详情
+  const handleViewProject = (project: Project) => {
+    setSelectedProject(project);
+    setShowViewModal(true);
+  };
+
   // 编辑项目 - 打开模态框
   const handleEditProject = (project: Project) => {
     setEditingProject(project);
@@ -138,6 +169,12 @@ const ProjectList = () => {
   const closeEditModal = () => {
     setShowEditModal(false);
     setEditingProject(null);
+  };
+
+  // 关闭查看模态框
+  const closeViewModal = () => {
+    setShowViewModal(false);
+    setSelectedProject(null);
   };
 
   // 更新项目
@@ -224,7 +261,12 @@ const ProjectList = () => {
       status: "pending",
       startDate: formData.get("startDate") as string,
       manager: formData.get("manager") as string,
+      teamMembers: [],
+      budget: 0,
+      progress: 0,
       testSuite: (formData.get("testSuite") as string) || "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     try {
@@ -435,7 +477,10 @@ const ProjectList = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-100">Test Suite:</span>
-                  <span>{project.testSuite || "-"}</span>
+                  <span>
+                    {testSuites.find(s => s.id === project.testSuite)?.name ||
+                      "-"}
+                  </span>
                 </div>
               </div>
 
@@ -444,6 +489,7 @@ const ProjectList = () => {
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-1 flex-1 mr-2 border-slate-700 text-slate-100 hover:bg-slate-700"
+                  onClick={() => handleViewProject(project)}
                 >
                   <Eye className="w-4 h-4" />
                   View
@@ -538,12 +584,17 @@ const ProjectList = () => {
             <label className="block text-sm font-medium text-slate-100 mb-2">
               Test Suite
             </label>
-            <input
-              type="text"
+            <select
               name="testSuite"
               className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-              placeholder="Enter test suite..."
-            />
+            >
+              <option value="">Select a test suite...</option>
+              {testSuites.map(suite => (
+                <option key={suite.id} value={suite.id}>
+                  {suite.name} ({suite.status})
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -679,6 +730,89 @@ const ProjectList = () => {
         </div>
       </main>
 
+      {/* 查看项目详情模态框 */}
+      {showViewModal && selectedProject && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="bg-slate-800/90 border-slate-700/50 backdrop-blur p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-semibold">Project Details</h3>
+              <Button
+                onClick={closeViewModal}
+                className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
+                size="sm"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-lg font-medium mb-2">
+                  {selectedProject.name}
+                </h4>
+                <div className="flex items-center gap-2 mt-2">
+                  <span
+                    className={`px-2 py-1 rounded text-xs border min-w-21 justify-center flex ${getStatusColor(selectedProject.status)}`}
+                  >
+                    {selectedProject.status === "active"
+                      ? "Active"
+                      : selectedProject.status === "completed"
+                        ? "Completed"
+                        : "Pending"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-100">Manager:</span>
+                    <span>{selectedProject.manager}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-100">Start Date:</span>
+                    <span>{selectedProject.startDate}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-100">Updated At:</span>
+                    <span>{selectedProject.updatedAt}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-100">Test Suite:</span>
+                    <span>
+                      {testSuites.find(s => s.id === selectedProject.testSuite)
+                        ?.name || "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-100">Progress:</span>
+                    <span>{selectedProject.progress}%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h5 className="font-medium mb-2">Description</h5>
+                <p className="text-slate-400">{selectedProject.description}</p>
+              </div>
+
+              <div className="pt-4 flex justify-end">
+                <Button
+                  variant="outline"
+                  className="border-slate-700 text-slate-100 hover:bg-slate-700"
+                  onClick={closeViewModal}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* 编辑项目模态框 */}
       {showEditModal && editingProject && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -743,13 +877,18 @@ const ProjectList = () => {
                 <label className="block text-sm font-medium text-slate-100 mb-2">
                   Test Suite
                 </label>
-                <input
-                  type="text"
+                <select
                   name="testSuite"
                   className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:border-cyan-500 focus:ring-cyan-500/20 transition-all"
-                  placeholder="Input test suite..."
                   defaultValue={editingProject.testSuite || ""}
-                />
+                >
+                  <option value="">Select a test suite...</option>
+                  {testSuites.map(suite => (
+                    <option key={suite.id} value={suite.id}>
+                      {suite.name} ({suite.status})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex gap-3 pt-4">
